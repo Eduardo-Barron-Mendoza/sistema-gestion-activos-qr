@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Inventario General</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label"><strong>SGAFAQ</strong>Activos Fijos · QR</div>
+    </div>
+
+    <div class="s-user" onclick="window.location.href='{{ url_for('editar_perfil_usuario') }}'" 
+        style="cursor: pointer; transition: all 0.2s;" 
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'" 
+        onmouseout="this.style.backgroundColor=''">
+        <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+      </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// User</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-grid-1x2-fill nav-icon"></i> Dashboard
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-clock-history nav-icon"></i> Historial de movimientos
+      </div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item active"><i class="bi bi-table nav-icon"></i>Inventario general</div>
+    </nav>
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Inventario General</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">sistema / <span>Inventario General</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user" onclick="window.location.href='{{ url_for('editar_perfil_usuario') }}'" 
+            style="cursor: pointer; transition: all 0.2s;" 
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'" 
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av">{{ session.nombre_completo[:2]|upper }}</div>
+            <span>User</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// consulta</div>
+          <div class="ph-title">Inventario General</div>
+          <div class="ph-sub">Todos los activos registrados con acceso a su información y código QR</div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="window.location.href='{{ url_for('registrar_activo') }}'">
+          <i class="bi bi-plus-lg"></i> Registrar activo
+        </button>
+      </div>
+
+      <!-- Mensajes Flash -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" style="display:flex; margin-bottom:20px;">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
+        <input class="form-input" id="filterNombre" placeholder="Buscar por nombre…" style="max-width:200px">
+        <input class="form-input" id="filterUbicacion" placeholder="Filtrar por ubicación…" style="max-width:200px">
+        <select class="form-input" id="filterEdificio" style="max-width:150px">
+          <option value="">Todos los edificios</option>
+          {% for edificio in edificios %}
+            <option value="{{ edificio[1] }}">{{ edificio[1] }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="limpiarFiltros()">
+          <i class="bi bi-x-lg"></i> Limpiar
+        </button>
+      </div>
+
+      <!-- TABLA DE ACTIVOS DINÁMICA -->
+      <div class="card" style="padding:0; overflow:hidden">
+        <div class="table-wrap" style="border:none">
+          <table id="tablaActivos">
+            <thead>
+              <tr>
+                <th>Folio</th>
+                <th>Nombre</th>
+                <th>Edificio</th>
+                <th>Ubicación</th>
+                <th>Garantía</th>
+                <th>Fecha</th>
+                <th>Foto</th>
+                <th>QR</th>
+                <th>Observaciones</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in activos %}
+              <tr>
+                <td>{{ a[0] }}</td>
+                <td><span class="badge b-blue">{{ a[1] }}</span></td>
+                <td>{{ a[2] or '—' }}</td>
+                <td><span class="badge b-ink">{{ a[3] }}</span></td>
+                <td> <span class="badge b-green">{{ a[4] }}</span></td>
+                <td> <span class="badge b-green">{{ a[5] }}</span></td>
+                <td>
+                  {% if a[6] %}
+                    <img src="{{ url_for('static', filename='img_activos/' + a[6]) }}"
+                         style="max-width:80px; border:1px solid var(--border-dark); border-radius:6px; cursor:pointer;"
+                         onclick="verFoto('{{ url_for('static', filename='img_activos/' + a[6]) }}')">
+                  {% else %}
+                    <span class="badge b-blue">SIN FOTO</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if a[7] %}
+                    <img src="/{{ a[7] }}" style="max-width:60px; cursor:pointer;" 
+                         onclick="verQR('{{ a[1] }}', '{{ a[0] }}', '/{{ a[7] }}')">
+                  {% else %}
+                    <span class="badge b-amber">SIN QR</span>
+                  {% endif %}
+                </td>
+                <td><span class="badge b-amber">{{ a[8] or '—' }}</span></td>
+                <td>
+                  <div style="display:flex; gap:3px; align-items:center;">
+                    <!-- Menú desplegable para acciones QR -->
+                    {% if a[7] %}
+                    <div class="btn-group" style="position:relative; display:inline-block;">
+                      <button class="btn btn-outline btn-xs" onclick="toggleQRMenu(this)" title="Acciones QR">
+                        <i class="bi bi-qr-code"></i>
+                      </button>
+                      <div class="qr-menu" style="display:none; position:absolute; background:white; border:1px solid var(--smoke-3); border-radius:var(--radius-sm); box-shadow:var(--shadow-sm); z-index:10; min-width:140px;">
+                        <a href="/{{ a[7] }}" download class="btn btn-ghost btn-sm" style="display:flex; justify-content:flex-start; width:100%; border-radius:0;">
+                          <i class="bi bi-download"></i> Descargar
+                        </a>
+                        <button class="btn btn-ghost btn-sm" onclick="imprimirQR('/{{ a[7] }}', '{{ a[1] }}')" style="display:flex; justify-content:flex-start; width:100%; border-radius:0;">
+                          <i class="bi bi-printer"></i> Imprimir
+                        </button>
+                      </div>
+                    </div>
+                    {% endif %}
+
+                    <a href="{{ url_for('ver_activo', id_activo=a[0]) }}" class="btn btn-outline btn-xs" title="Ver detalles">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    
+                    <button class="btn btn-outline btn-xs" onclick="abrirModalEditarActivo(
+                      '{{ a[0] }}', 
+                      '{{ a[1] }}', 
+                      '{{ a[9] }}', 
+                      '{{ a[3] }}', 
+                      '{{ a[4] }}', 
+                      '{{ a[8] }}', 
+                      '{{ a[6] }}', 
+                      '{{ a[7] }}',
+                      '{{ a[2] }}'
+                    )" title="Editar">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+
+                    <button class="btn btn-danger-soft btn-xs" onclick="confirmarEliminacionActivo('{{ a[0] }}', '{{ a[1] }}')" title="Eliminar">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                  {% if not a[7] %}
+                    <div style="margin-top:3px; text-align:left;">
+                      <span class="badge b-red" style="font-size:9px;">QR no disponible</span>
+                    </div>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Ver QR -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal" style="max-width:400px; text-align:center;">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="closeModal('qrModal')"><i class="bi bi-x"></i></button>
+    <div class="m-title" style="font-size:22px;">Código QR</div>
+    <div class="m-sub" id="qrModalTitle" style="font-weight:500; margin-bottom:15px;">Nombre del Activo — Folio</div>
+    
+    <div style="display:flex; justify-content:center; margin:10px 0 15px; padding:15px; background:var(--smoke); border-radius:var(--radius); border:1px solid var(--smoke-3)">
+      <img id="qrModalImage" src="" alt="QR del activo" style="max-width:200px; max-height:200px; border-radius:8px;">
+    </div>
+    
+    <div style="background:rgba(0,201,122,0.04); border:1px solid rgba(0,201,122,0.15); border-radius:8px; padding:12px; font-size:13px; color:var(--g-dark); margin-bottom:20px; text-align:left;">
+      <i class="bi bi-info-circle-fill" style="color:#2b7a4b; margin-right:6px;"></i>
+      <strong>Importante:</strong> El QR es único para este activo y no cambia aunque edites su información.
+    </div>
+    
+    <div class="m-actions" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="closeModal('qrModal')" style="gap:5px;">
+        <i class="bi bi-x-lg"></i> Cerrar
+      </button>
+      <a href="#" id="downloadQRLink" class="btn btn-green" download style="gap:5px;">
+        <i class="bi bi-download"></i> Descargar QR
+      </a>
+      <button class="btn btn-green" onclick="imprimirQRModal()" style="gap:5px;">
+        <i class="bi bi-printer"></i> Imprimir
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Ver Foto -->
+<div class="modal-overlay" id="fotoModal">
+  <div class="modal" style="max-width:500px; text-align:center;">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="closeModal('fotoModal')"><i class="bi bi-x"></i></button>
+    <div class="m-title">Foto del Activo</div>
+    <div style="display:flex; justify-content:center; margin:20px 0;">
+      <img id="fotoModalImage" src="" alt="Foto del activo" style="max-width:100%; max-height:400px; border-radius:8px;">
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-outline" onclick="closeModal('fotoModal')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Confirmar eliminación de activo -->
+<div class="modal-overlay" id="deleteActivoModal">
+  <div class="modal modal-sm">
+    <div class="modal-top-bar" style="background:var(--red)"></div>
+    <button class="m-close" onclick="closeModal('deleteActivoModal')"><i class="bi bi-x"></i></button>
+    <div class="m-title">⚠️ Confirmar eliminación</div>
+    <div class="m-sub" id="deleteActivoSub">¿Confirmas la eliminación de este activo?</div>
+    
+    <div class="alert alert-error">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      Esta acción es permanente y no puede deshacerse.
+      <br><br>
+      <strong>Se eliminarán:</strong>
+      <ul style="margin-top:8px; margin-left:20px; text-align:left;">
+        <li>El activo seleccionado</li>
+        <li>Todo su historial de movimientos</li>
+        <li>Los detalles del historial</li>
+      </ul>
+    </div>
+    
+    <div class="m-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('deleteActivoModal')">Cancelar</button>
+      <form method="POST" id="deleteActivoForm" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+        <button type="submit" class="btn btn-danger-soft btn-sm">
+          <i class="bi bi-trash"></i> Eliminar definitivamente
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Editar Activo -->
+<div class="modal-overlay" id="modalEditarActivo">
+  <div class="modal">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="cerrarModalEditarActivo()"><i class="bi bi-x"></i></button>
+    <div class="m-title">✏️ Editar Activo</div>
+    <div class="m-sub">Modifica la información del activo seleccionado</div>
+
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('editar_activo_usuario') }}" id="formEditarActivo">
+      <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+      <input type="hidden" name="id_activo" id="edit_id_activo">
+
+      <div class="form-group">
+        <label class="form-label">Nombre del activo *</label>
+        <input class="form-input" type="text" name="nombre" id="edit_nombre" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Edificio *</label>
+        <select class="form-input" name="id_edificio" id="edit_id_edificio" required>
+          <option value="">-- Selecciona un edificio --</option>
+          {% for edificio in edificios %}
+            <option value="{{ edificio[0] }}">{{ edificio[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ubicación actual *</label>
+        <input class="form-input" type="text" name="ubicacion" id="edit_ubicacion" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Garantía</label>
+        <input class="form-input" type="text" name="garantia" id="edit_garantia" placeholder="Ej: 1 año, 11 meses">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Observaciones</label>
+        <textarea class="form-input" name="observaciones" id="edit_observaciones" rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Foto actual</label>
+        <img id="edit_foto_actual" class="photo-preview" style="max-width:120px; max-height:120px; display:block; margin-bottom:10px; border-radius:6px; border:1px solid var(--border-dark);">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nueva foto</label>
+        <input class="form-input" type="file" name="foto" id="edit_foto" accept="image/*" onchange="prevPhoto(this, 'edit_foto_actual')">
+        <div class="form-hint">Dejar vacío para mantener la foto actual. Máx. 5 MB.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Código QR</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img id="edit_qr_actual" src="" style="max-width:60px; max-height:60px; display:none; border-radius:4px;">
+          <span id="edit_qr_text" style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary);"></span>
+        </div>
+        <div class="form-hint">El QR es único y no puede modificarse</div>
+      </div>
+
+      <div class="m-actions">
+        <button type="button" class="btn btn-outline btn-sm" onclick="cerrarModalEditarActivo()">Cancelar</button>
+        <button type="submit" class="btn btn-green btn-sm">
+          <i class="bi bi-check-lg"></i> Guardar cambios
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+<script>
+let activoAEliminar = null;
+
+// Función para abrir/cerrar modal (usando alerts.js)
+function openModal(id) {
+    document.getElementById(id)?.classList.add('open');
+}
+
+function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+}
+
+// Función para ver QR en modal
+function verQR(nombreActivo, idActivo, rutaQR) {
+    document.getElementById('qrModalTitle').innerHTML = `<strong>${nombreActivo}</strong><br><span style="font-size:12px;">FOLIO: ${idActivo}</span>`;
+    document.getElementById('qrModalImage').src = rutaQR;
+    
+    const downloadLink = document.getElementById('downloadQRLink');
+    downloadLink.href = rutaQR;
+    downloadLink.download = `qr_activo_${idActivo}.png`;
+    
+    openModal('qrModal');
+}
+
+// Función para ver foto en modal
+function verFoto(rutaFoto) {
+    document.getElementById('fotoModalImage').src = rutaFoto;
+    openModal('fotoModal');
+}
+
+// Función para imprimir QR desde el modal
+function imprimirQRModal() {
+    const qrImage = document.getElementById('qrModalImage');
+    const title = document.getElementById('qrModalTitle').innerText;
+    imprimirQR(qrImage.src, title);
+}
+
+// Función para imprimir QR directamente
+function imprimirQR(url, titulo) {
+    const ventana = window.open('', '_blank');
+    ventana.document.write(`
+        <html>
+            <head>
+                <title>Imprimir QR</title>
+                <style>
+                    body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column; font-family: Arial; }
+                    img { max-width: 300px; margin-bottom: 20px; }
+                    h3 { color: #333; }
+                </style>
+            </head>
+            <body>
+                <h3>${titulo}</h3>
+                <img src="${url}" />
+                <p>Código QR único del activo</p>
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            window.close();
+                        }, 500);
+                    }
+                <\/script>
+            </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+
+// Función para confirmar eliminación de activo
+function confirmarEliminacionActivo(idActivo, nombreActivo) {
+    activoAEliminar = idActivo;
+    document.getElementById('deleteActivoSub').innerHTML = `¿Confirmas la eliminación de <strong>${nombreActivo}</strong>?`;
+    document.getElementById('deleteActivoForm').action = `/activos/eliminar/${idActivo}/usuario`;
+    openModal('deleteActivoModal');
+}
+
+// Función para limpiar filtros
+function limpiarFiltros() {
+    document.getElementById('filterNombre').value = '';
+    document.getElementById('filterUbicacion').value = '';
+    document.getElementById('filterEdificio').value = '';
+    filtrarTabla();
+}
+
+// Función para filtrar la tabla
+function filtrarTabla() {
+    const filtroNombre = document.getElementById('filterNombre').value.toLowerCase();
+    const filtroUbicacion = document.getElementById('filterUbicacion').value.toLowerCase();
+    const filtroEdificio = document.getElementById('filterEdificio').value;
+    const filas = document.querySelectorAll('#tablaActivos tbody tr');
+    
+    filas.forEach(fila => {
+        const nombre = fila.cells[1]?.innerText.toLowerCase() || '';
+        const ubicacion = fila.cells[3]?.innerText.toLowerCase() || '';
+        const edificio = fila.cells[2]?.innerText || '';
+        
+        const coincideNombre = !filtroNombre || nombre.includes(filtroNombre);
+        const coincideUbicacion = !filtroUbicacion || ubicacion.includes(filtroUbicacion);
+        const coincideEdificio = !filtroEdificio || edificio.includes(filtroEdificio);
+        
+        fila.style.display = coincideNombre && coincideUbicacion && coincideEdificio ? '' : 'none';
+    });
+}
+
+// Función para abrir modal de edición de activo
+function abrirModalEditarActivo(idActivo, nombre, idEdificio, ubicacion, garantia, observaciones, foto, qr, nombreEdificio) {
+    document.getElementById('edit_id_activo').value = idActivo;
+    document.getElementById('edit_nombre').value = nombre;
+    document.getElementById('edit_id_edificio').value = idEdificio;
+    document.getElementById('edit_ubicacion').value = ubicacion;
+    document.getElementById('edit_garantia').value = garantia || '';
+    document.getElementById('edit_observaciones').value = observaciones || '';
+    
+    // Foto actual
+    const fotoActual = document.getElementById('edit_foto_actual');
+    if (foto) {
+        fotoActual.src = "/static/img_activos/" + foto;
+        fotoActual.style.display = 'block';
+    } else {
+        fotoActual.src = "";
+        fotoActual.style.display = 'none';
+    }
+    
+    // QR actual
+    const qrActual = document.getElementById('edit_qr_actual');
+    const qrText = document.getElementById('edit_qr_text');
+    if (qr) {
+        qrActual.src = "/" + qr;
+        qrActual.style.display = 'block';
+        qrText.innerHTML = 'QR disponible';
+    } else {
+        qrActual.style.display = 'none';
+        qrText.innerHTML = 'Sin QR';
+    }
+    
+    openModal('modalEditarActivo');
+}
+
+// Función para cerrar modal de edición de activo
+function cerrarModalEditarActivo() {
+    closeModal('modalEditarActivo');
+    // Limpiar el input file
+    document.getElementById('edit_foto').value = '';
+}
+
+// Función para toggle del menú QR
+function toggleQRMenu(btn) {
+    const menu = btn.nextElementSibling;
+    if (menu.style.display === 'none' || menu.style.display === '') {
+        menu.style.display = 'block';
+    } else {
+        menu.style.display = 'none';
+    }
+}
+
+// Inicializar eventos
+document.addEventListener('DOMContentLoaded', function() {
+    // Agregar eventos a los filtros
+    document.getElementById('filterNombre')?.addEventListener('input', filtrarTabla);
+    document.getElementById('filterUbicacion')?.addEventListener('input', filtrarTabla);
+    document.getElementById('filterEdificio')?.addEventListener('change', filtrarTabla);
+    
+    // Cerrar modales al hacer clic fuera
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+    
+    // Cerrar menú QR al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.btn-group')) {
+            document.querySelectorAll('.qr-menu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+        }
+    });
+});
+
+// Agregar estilos adicionales
+const style = document.createElement('style');
+style.textContent = `
+    .filter-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .photo-thumb {
+        max-width: 80px;
+        border: 1px solid var(--border-dark);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .photo-thumb:hover {
+        transform: scale(1.05);
+    }
+    .qr-thumb {
+        max-width: 60px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .qr-thumb:hover {
+        transform: scale(1.1);
+    }
+    .btn-xs {
+        padding: 2px 8px;
+        font-size: 11px;
+    }
+    .b-red {
+        background: rgba(181, 59, 59, 0.1);
+        color: #b53b3b;
+    }
+`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>

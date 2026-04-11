@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Registrar Usuario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label"><strong>SGAFAQ</strong>Activos Fijos · QR</div>
+    </div>
+
+    <div class="s-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+        style="cursor: pointer; transition: all 0.2s;" 
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'" 
+        onmouseout="this.style.backgroundColor=''">
+        <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+      </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// ADMIN</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_admin') }}'" style="cursor: pointer;">
+        <i class="bi bi-grid-1x2-fill nav-icon"></i> Dashboard
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos') }}'" style="cursor: pointer;">
+        <i class="bi bi-clock-history nav-icon"></i> Historial de movimientos
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('escanear_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-qr-code-scan nav-icon"></i> Escanear activo
+      </div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item active"><i class="bi bi-people-fill nav-icon"></i> Registrar usuario</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('editar_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-pencil-fill nav-icon"></i> Gestionar usuarios
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('inventario_general') }}'" style="cursor: pointer;">
+        <i class="bi bi-table nav-icon"></i> Inventario general
+      </div>
+    </nav>
+
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Registrar Usuario</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">gestión / <span>Nuevo usuario</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+            style="cursor: pointer; transition: all 0.2s;" 
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'" 
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av">{{ session.nombre_completo[:2]|upper }}</div>
+            <span>Admin</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Mensajes Flash -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'error' if category in ['error','danger'] else 'info' }}" style="display:flex; margin-bottom:16px;">
+              <i class="bi bi-{{ 'check-circle-fill' if category == 'success' else 'exclamation-circle-fill' }}"></i> {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// gestión de usuarios</div>
+          <div class="ph-title">Registrar Nuevo Usuario</div>
+          <div class="ph-sub">Crea una cuenta de acceso al sistema para un colaborador</div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="window.location.href='{{ url_for('editar_usuario') }}'">
+          <i class="bi bi-people-fill nav-icon"></i> Gestionar usuarios
+        </button>
+      </div>
+
+      <!-- FORMULARIO DE REGISTRO INTEGRADO -->
+      <form method="POST" enctype="multipart/form-data" id="crearForm" onsubmit="return validarCrear()">
+        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+        
+        <div style="display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start;">
+
+          <!-- TARJETA DE FOTO -->
+          <div class="card" style="text-align:center;padding:22px 16px;">
+            <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--g-dark);font-weight:700;margin-bottom:14px;text-align:left;">// foto de perfil</div>
+            
+            <div style="position:relative;display:inline-block;margin-bottom:14px;">
+              <div style="width:90px;height:90px;border-radius:50%;overflow:hidden;border:2px dashed var(--g-border);margin:0 auto;background:var(--smoke);display:flex;align-items:center;justify-content:center;">
+                <img id="fotoPreview" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+                <div id="fotoPlaceholder" style="display:flex;flex-direction:column;align-items:center;gap:4px;color:rgba(8,13,11,0.3);">
+                  <i class="bi bi-camera" style="font-size:24px;"></i>
+                  <span style="font-size:10px;">Sin foto</span>
+                </div>
+              </div>
+              <label for="fotoInput" style="position:absolute;bottom:0;right:0;width:24px;height:24px;background:var(--g);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,201,122,0.4);">
+                <i class="bi bi-camera-fill" style="font-size:11px;color:var(--ink);"></i>
+              </label>
+              <input type="file" name="foto" id="fotoInput" accept="image/*" style="display:none;">
+            </div>
+            
+            <div style="font-size:11px;color:rgba(8,13,11,0.4);line-height:1.7;">JPG, PNG, WEBP · max 5MB</div>
+            
+            <div style="margin-top:16px;padding:12px;background:rgba(0,201,122,0.04);border:1px solid var(--g-border);border-radius:var(--radius);text-align:left;">
+              <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--g-dark);font-weight:700;margin-bottom:8px;">// notas</div>
+              <ul style="font-size:11px;color:rgba(8,13,11,0.5);padding-left:14px;line-height:2;">
+                <li>Acceso inmediato al crear</li>
+                <li>El rol define permisos</li>
+                <li>Contraseña distingue mayús.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- CAMPOS DEL FORMULARIO -->
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            
+            <!-- DATOS PERSONALES -->
+            <div class="card">
+              <div class="card-header" style="margin-bottom:14px;">
+                <div>
+                  <div class="card-title"><i class="bi bi-person-lines-fill" style="color:var(--g-dark);margin-right:6px;"></i>Datos Personales</div>
+                  <div class="card-sub">Información del colaborador</div>
+                </div>
+              </div>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group" style="margin-bottom:0;grid-column:1/-1;">
+                  <label class="form-label">Nombre Completo *</label>
+                  <input class="form-input" type="text" name="nombre" id="inputNombre" placeholder="Ej. María González" value="{{ request.form.nombre or '' }}" maxlength="100">
+                  <div class="form-error" id="errNombre" style="display:none;"></div>
+                </div>
+                
+                <!-- PUESTO -->
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Puesto / Cargo *</label>
+                    <input class="form-input" type="text" name="puesto" id="inputPuesto" placeholder="Ej. Técnico de soporte" value="{{ request.form.puesto or '' }}" maxlength="50">
+                    <div class="form-error" id="errPuesto" style="display:none;"></div>
+                </div>
+                
+                <!-- EDAD -->
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Edad *</label>
+                    <input class="form-input" type="number" name="edad" id="inputEdad" min="18" max="100" placeholder="28" value="{{ request.form.edad or '' }}">
+                    <div class="form-error" id="errEdad" style="display:none;"></div>
+                </div>
+                
+                <!-- DOMICILIO -->
+                <div class="form-group" style="margin-bottom:0;grid-column:1/-1;">
+                    <label class="form-label">Domicilio *</label>
+                    <input class="form-input" type="text" name="domicilio" id="inputDomicilio" placeholder="Calle, colonia, ciudad..." value="{{ request.form.domicilio or '' }}" maxlength="150">
+                    <div class="form-error" id="errDomicilio" style="display:none;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CREDENCIALES Y ACCESO -->
+            <div class="card">
+              <div class="card-header" style="margin-bottom:14px;">
+                <div>
+                  <div class="card-title"><i class="bi bi-key-fill" style="color:var(--g-dark);margin-right:6px;"></i>Credenciales y Acceso</div>
+                  <div class="card-sub">Login y permisos en el sistema</div>
+                </div>
+              </div>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <!-- USUARIO (CORREO) -->
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Correo electrónico *</label>
+                  <div style="position:relative;">
+                    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:rgba(8,13,11,0.35);font-size:14px;">✉</span>
+                    <input class="form-input" type="email" name="user" id="inputUser" placeholder="ejemplo@correo.com" value="{{ request.form.user or '' }}" style="padding-left:32px;" maxlength="150">
+                  </div>
+                  <div class="form-error" id="errUser" style="display:none;"></div>
+                  <div class="form-hint">Debe ser un correo electrónico válido</div>
+                </div>
+                
+                <!-- ROL (con opción por defecto "Selecciona una opción") -->
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Rol del sistema *</label>
+                    <select class="form-input" name="rol" id="inputRol">
+                        <option value="" disabled selected>-- Selecciona una opción --</option>
+                        <option value="Usuario" {% if request.form.rol == 'Usuario' %}selected{% endif %}>Usuario</option>
+                        <option value="Administrador" {% if request.form.rol == 'Administrador' %}selected{% endif %}>Administrador</option>
+                    </select>
+                    <div class="form-error" id="errRol" style="display:none;"></div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Contraseña *</label>
+                  <div style="position:relative;">
+                    <input class="form-input" type="password" name="password" id="inputPass" placeholder="Mín. 8 caracteres" style="padding-right:38px;">
+                    <button type="button" onclick="togglePass('inputPass','eyePass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(8,13,11,0.4);font-size:15px;">
+                      <i class="bi bi-eye" id="eyePass"></i>
+                    </button>
+                  </div>
+                  <div class="form-error" id="errPass" style="display:none;"></div>
+                  <div class="form-hint">Mínimo 8 caracteres, al menos 1 letra mayúscula, 1 minúscula y 1 número</div>
+                </div>
+                
+                <!-- CONFIRMAR CONTRASEÑA -->
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Confirmar contraseña *</label>
+                  <div style="position:relative;">
+                    <input class="form-input" type="password" name="password2" id="inputPass2" placeholder="Repetir contraseña" style="padding-right:38px;">
+                    <button type="button" onclick="togglePass('inputPass2','eyePass2')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(8,13,11,0.4);font-size:15px;">
+                      <i class="bi bi-eye" id="eyePass2"></i>
+                    </button>
+                  </div>
+                  <div class="form-error" id="errPass2" style="display:none;"></div>
+                </div>
+              </div>
+              
+              <!-- Barra de fortaleza de contraseña -->
+              <div style="margin-top:12px;">
+                <div style="height:4px;background:var(--smoke-3);border-radius:4px;overflow:hidden;">
+                  <div id="passBar" style="height:100%;width:0%;background:var(--red);border-radius:4px;transition:width .3s,background .3s;"></div>
+                </div>
+                <div id="passLabel" style="font-size:11px;color:rgba(8,13,11,0.4);margin-top:4px;"></div>
+              </div>
+            </div>
+
+            <!-- BOTONES DE ACCIÓN -->
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+              <a href="{{ url_for('dashboard_admin') }}" class="btn btn-outline"><i class="bi bi-x-lg"></i> Cancelar</a>
+              <button type="submit" class="btn btn-green" id="btnCrear"><i class="bi bi-person-plus-fill"></i> Crear Usuario</button>
+            </div>
+          </div>
+        </div>
+      </form>
+      <!-- FIN FORMULARIO -->
+    </div>
+
+<!-- MODAL: Confirmación de registro exitoso (versión simple) -->
+<div class="modal-overlay" id="registroExitosoSimpleModal">
+  <div class="modal modal-sm">
+    <div class="modal-top-bar" style="background:var(--g)"></div>
+    <button class="m-close" onclick="closeModal('registroExitosoSimpleModal')"><i class="bi bi-x"></i></button>
+    
+    <div style="text-align:center; padding:10px 0;">
+      <div style="font-size:50px; color:var(--g); margin-bottom:15px;">
+        <i class="bi bi-check-circle-fill"></i>
+      </div>
+      <div class="m-title" style="color:var(--g);">¡Registro Exitoso!</div>
+      <div class="m-sub" id="registroSimpleSub" style="margin-bottom:20px;">
+        El usuario ha sido creado correctamente
+      </div>
+      
+      <div class="alert alert-success" style="text-align:left; margin:15px 0;">
+        <i class="bi bi-envelope-fill"></i>
+        <span id="correoSimpleMsg">Se ha enviado un correo de bienvenida</span>
+      </div>
+    </div>
+    
+    <div class="m-actions" style="justify-content:center;">
+      <button class="btn btn-green" onclick="closeModal('registroExitosoSimpleModal')">
+        <i class="bi bi-check-lg"></i> Aceptar
+      </button>
+    </div>
+  </div>
+</div>
+    
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+<script>
+// Vista previa de foto
+document.getElementById('fotoInput').addEventListener('change', function() {
+  const archivo = this.files[0];
+  if (archivo) {
+    // Validar tamaño (5MB)
+    if (archivo.size > 5 * 1024 * 1024) {
+      showToast('La imagen supera los 5 MB', 'error');
+      this.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('fotoPreview').src = e.target.result;
+      document.getElementById('fotoPreview').style.display = 'block';
+      document.getElementById('fotoPlaceholder').style.display = 'none';
+    };
+    reader.readAsDataURL(archivo);
+  } else {
+    document.getElementById('fotoPreview').style.display = 'none';
+    document.getElementById('fotoPlaceholder').style.display = 'flex';
+  }
+});
+
+// Mostrar/ocultar contraseña
+function togglePass(inputId, iconId) {
+  const inp = document.getElementById(inputId);
+  const ico = document.getElementById(iconId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  ico.className = inp.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+
+// Medidor de fortaleza de contraseña
+document.getElementById('inputPass').addEventListener('input', function() {
+  const v = this.value;
+  let s = 0;
+  if (v.length >= 6) s++;
+  if (v.length >= 10) s++;
+  if (/[A-Z]/.test(v)) s++;
+  if (/[a-z]/.test(v)) s++; 
+  if (/[0-9]/.test(v)) s++;
+  if (/[^A-Za-z0-9]/.test(v)) s++;
+  
+  const niveles = [
+    ['', 'var(--smoke-3)', '0%'],
+    ['Muy débil', 'var(--red)', '20%'],
+    ['Débil', '#e67e22', '40%'],
+    ['Regular', 'var(--amber)', '60%'],
+    ['Fuerte', '#27ae60', '80%'],
+    ['Muy fuerte', 'var(--g)', '100%']
+  ];
+  
+  const idx = v.length === 0 ? 0 : Math.min(s + 1, 5);
+  
+  document.getElementById('passBar').style.width = niveles[idx][2];
+  document.getElementById('passBar').style.background = niveles[idx][1];
+  document.getElementById('passLabel').textContent = niveles[idx][0];
+  document.getElementById('passLabel').style.color = niveles[idx][1];
+});
+
+// Validación del formulario
+function validarCrear() {
+  let ok = true;
+  
+  // Función helper para validar campos
+  const validarCampo = (id, errId, mensaje, condicion) => {
+    const campo = document.getElementById(id);
+    const error = document.getElementById(errId);
+    
+    if (!campo) return;
+    
+    if (condicion ? condicion(campo.value) : !campo.value.trim()) {
+      campo.classList.add('error');
+      error.textContent = mensaje;
+      error.style.display = 'block';
+      ok = false;
+    } else {
+      campo.classList.remove('error');
+      error.style.display = 'none';
+    }
+  };
+  
+  // ============================================
+  // VALIDACIONES
+  // ============================================
+  
+  // 1. NOMBRE (requerido, máximo 100 caracteres)
+  const nombre = document.getElementById('inputNombre');
+  const errNombre = document.getElementById('errNombre');
+  
+  if (!nombre.value.trim()) {
+    nombre.classList.add('error');
+    errNombre.textContent = 'El nombre completo es requerido';
+    errNombre.style.display = 'block';
+    ok = false;
+  } else if (nombre.value.length > 100) {
+    nombre.classList.add('error');
+    errNombre.textContent = 'El nombre no puede exceder los 100 caracteres';
+    errNombre.style.display = 'block';
+    ok = false;
+  } else {
+    nombre.classList.remove('error');
+    errNombre.style.display = 'none';
+  }
+  
+  // 2. CORREO (requerido, formato válido)
+  const correo = document.getElementById('inputUser');
+  const errCorreo = document.getElementById('errUser');
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  if (!correo.value.trim()) {
+    correo.classList.add('error');
+    errCorreo.textContent = 'El correo electrónico es requerido';
+    errCorreo.style.display = 'block';
+    ok = false;
+  } else if (!emailRegex.test(correo.value)) {
+    correo.classList.add('error');
+    errCorreo.textContent = 'Ingresa un correo electrónico válido (ej: nombre@dominio.com)';
+    errCorreo.style.display = 'block';
+    ok = false;
+  } else {
+    correo.classList.remove('error');
+    errCorreo.style.display = 'none';
+  }
+  
+  // 3. CONTRASEÑA (requerida, mínimo 8 caracteres, mayúscula, minúscula, número)
+  const pass = document.getElementById('inputPass');
+  
+  const errPass = document.getElementById('errPass');
+  
+  const tieneMayuscula = /[A-Z]/.test(pass.value);
+  const tieneMinuscula = /[a-z]/.test(pass.value);
+  const tieneNumero = /[0-9]/.test(pass.value);
+  
+  if (!pass.value) {
+    pass.classList.add('error');
+    errPass.textContent = 'La contraseña es requerida';
+    errPass.style.display = 'block';
+    ok = false;
+  } else if (pass.value.length < 8) {
+    pass.classList.add('error');
+    errPass.textContent = 'La contraseña debe tener al menos 8 caracteres';
+    errPass.style.display = 'block';
+    ok = false;
+  } else if (!tieneMayuscula || !tieneMinuscula || !tieneNumero) {
+    pass.classList.add('error');
+    errPass.textContent = 'La contraseña debe tener al menos 1 mayúscula, 1 minúscula y 1 número';
+    errPass.style.display = 'block';
+    ok = false;
+  } else {
+    pass.classList.remove('error');
+    errPass.style.display = 'none';
+  }
+  
+  // 4. CONFIRMAR CONTRASEÑA
+  const pass2 = document.getElementById('inputPass2');
+  const errPass2 = document.getElementById('errPass2');
+  
+  if (pass.value !== pass2.value) {
+    pass2.classList.add('error');
+    errPass2.textContent = 'Las contraseñas no coinciden';
+    errPass2.style.display = 'block';
+    ok = false;
+  } else {
+    pass2.classList.remove('error');
+    errPass2.style.display = 'none';
+  }
+  
+  // 5. EDAD (requerida)
+  const edad = document.getElementById('inputEdad');
+  const errEdad = document.getElementById('errEdad');
+  
+  if (!edad.value.trim()) {
+    edad.classList.add('error');
+    errEdad.textContent = 'La edad es requerida';
+    errEdad.style.display = 'block';
+    ok = false;
+  } else {
+    const edadNum = parseInt(edad.value);
+    if (isNaN(edadNum) || edadNum < 16 || edadNum > 100) {
+      edad.classList.add('error');
+      errEdad.textContent = 'La edad debe ser un número entre 16 y 100';
+      errEdad.style.display = 'block';
+      ok = false;
+    } else {
+      edad.classList.remove('error');
+      errEdad.style.display = 'none';
+    }
+  }
+  
+  // 6. PUESTO (requerido)
+  const puesto = document.getElementById('inputPuesto');
+  const errPuesto = document.getElementById('errPuesto');
+  
+  if (!puesto.value.trim()) {
+    puesto.classList.add('error');
+    errPuesto.textContent = 'El puesto es requerido';
+    errPuesto.style.display = 'block';
+    ok = false;
+  } else if (puesto.value.length > 50) {
+    puesto.classList.add('error');
+    errPuesto.textContent = 'El puesto no puede exceder 50 caracteres';
+    errPuesto.style.display = 'block';
+    ok = false;
+  } else {
+    puesto.classList.remove('error');
+    errPuesto.style.display = 'none';
+  }
+  
+  // 7. DOMICILIO (requerido)
+  const domicilio = document.getElementById('inputDomicilio');
+  const errDomicilio = document.getElementById('errDomicilio');
+  
+  if (!domicilio.value.trim()) {
+    domicilio.classList.add('error');
+    errDomicilio.textContent = 'El domicilio es requerido';
+    errDomicilio.style.display = 'block';
+    ok = false;
+  } else if (domicilio.value.length > 150) {
+    domicilio.classList.add('error');
+    errDomicilio.textContent = 'El domicilio no puede exceder 150 caracteres';
+    errDomicilio.style.display = 'block';
+    ok = false;
+  } else {
+    domicilio.classList.remove('error');
+    errDomicilio.style.display = 'none';
+  }
+  
+  // 8. ROL (requerido)
+  const rol = document.getElementById('inputRol');
+  const errRol = document.getElementById('errRol');
+  
+  if (!rol.value || rol.value === '') {
+    rol.classList.add('error');
+    errRol.textContent = 'Debes seleccionar un rol';
+    errRol.style.display = 'block';
+    ok = false;
+  } else {
+    rol.classList.remove('error');
+    errRol.style.display = 'none';
+  }
+  
+  // Deshabilitar botón si todo está bien
+  if (ok) {
+    const btn = document.getElementById('btnCrear');
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creando...';
+    btn.disabled = true;
+    
+    // Aquí podrías enviar el correo de notificación
+    enviarCorreoNotificacion();
+  }
+  
+  return ok;
+}
+
+// Función para enviar correo de notificación (simulada)
+// Función para enviar correo de notificación
+function enviarCorreoNotificacion() {
+  const correo = document.getElementById('inputUser').value;
+  const nombre = document.getElementById('inputNombre').value;
+  
+  console.log(`📧 Enviando correo de bienvenida a ${correo} para ${nombre}`);
+  
+  fetch('/api/enviar_correo_bienvenida', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: correo,
+      nombre: nombre
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast('✅ Correo de bienvenida enviado', 'success');
+    } else {
+      console.warn('El usuario se creó pero no se pudo enviar el correo:', data.message);
+    }
+  })
+  .catch(error => {
+    console.error('Error al enviar correo:', error);
+    // No mostramos error al usuario porque el usuario ya se creó
+  });
+}
+
+// Menú hamburguesa
+const menuBtn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+
+if (menuBtn && sidebar && overlay) {
+  menuBtn.addEventListener('click', () => {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  });
+  
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  });
+  
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+  });
+}
+
+// Función para enviar correo de notificación (versión simple)
+function enviarCorreoNotificacion() {
+  const correo = document.getElementById('inputUser').value;
+  const nombre = document.getElementById('inputNombre').value;
+  
+  // Mostrar modal simple
+  document.getElementById('registroSimpleSub').innerHTML = `Usuario <strong>${nombre}</strong> creado exitosamente`;
+  openModal('registroExitosoSimpleModal');
+  
+  // Enviar correo en segundo plano (sin afectar el modal)
+  fetch('/api/enviar_correo_bienvenida', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: correo, nombre: nombre })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      console.log('✅ Correo enviado');
+    } else {
+      console.warn('❌ Error al enviar correo:', data.message);
+    }
+  })
+  .catch(error => console.error('Error:', error));
+}
+</script>
+</body>
+</html>

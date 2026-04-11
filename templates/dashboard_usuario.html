@@ -1,0 +1,2038 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+<style>
+  /* Agregar al final de styles.css o en el style del dashboard */
+.stat-card {
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card[onclick] {
+  cursor: pointer;
+}
+
+.stat-card[onclick]:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-card[onclick]:active {
+  transform: translateY(0);
+}
+
+.stat-card[onclick]::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0,201,122,0.05) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.stat-card[onclick]:hover::after {
+  opacity: 1;
+}
+</style>
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label">
+        <strong>SGAFAQ</strong>
+        Activos Fijos · QR
+      </div>
+    </div>
+
+    <div class="s-user" onclick="window.location.href='{{ url_for('editar_perfil_usuario') }}'" 
+        style="cursor: pointer; transition: all 0.2s;" 
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'" 
+        onmouseout="this.style.backgroundColor=''">
+      <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+      </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// USER</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item active"><i class="bi bi-grid-1x2-fill nav-icon"></i>Dashboard</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-clock-history nav-icon"></i> Historial de movimientos
+      </div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('inventario_general_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-table nav-icon"></i> Inventario general
+      </div>
+    </nav>
+
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+        </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">sistema / <span>Dashboard</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user" onclick="window.location.href='{{ url_for('editar_perfil_usuario') }}'" 
+            style="cursor: pointer; transition: all 0.2s;" 
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'" 
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av">{{ session.nombre_completo[:2]|upper }}</div>
+            <span>User</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// resumen ejecutivo</div>
+          <div class="ph-title">Dashboard</div>
+          <div class="ph-sub">Vista general del sistema de gestión de activos fijos</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="label-pill">
+            <span style="width:6px;height:6px;background:var(--g);border-radius:50%;display:inline-block"></span>
+            &nbsp;Sistema activo
+          </div>
+        </div>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div class="stats-grid">
+        <!-- Activos registrados -->
+        <div class="stat-card" onclick="cargarGraficaActivos()" style="cursor: pointer;" id="tarjetaActivos">
+          <div class="stat-card-accent" style="--sa:var(--g)"></div>
+          <div class="stat-card-bg"><i class="bi bi-box-seam-fill"></i></div>
+          <div class="stat-icon-wrap" style="background:rgba(0,201,122,0.1);color:var(--g)">
+            <i class="bi bi-box-seam-fill"></i>
+          </div>
+          <div class="stat-value" id="totalActivosValor">—</div>
+          <div class="stat-label">Activos registrados</div>
+          <div class="stat-note">Total en inventario</div>
+        </div>
+
+        <!-- Usuarios del sistema -->
+        <div class="stat-card" onclick="cargarGraficaActivosUsuario()" style="cursor: pointer;">
+          <div class="stat-card-accent" style="--sa:#1565c0"></div>
+          <div class="stat-card-bg"><i class="bi bi-people-fill"></i></div>
+          <div class="stat-icon-wrap" style="background:var(--blue-bg);color:var(--blue)">
+            <i class="bi bi-people-fill"></i>
+          </div>
+          <div class="stat-value" id="totalUsuariosValor">—</div>
+          <div class="stat-label">Activos por Usuario</div>
+          <div class="stat-note" id="usuarios-note">Ver distribución semanal</div>
+        </div>
+
+        <!-- Movimientos -->
+        <div class="stat-card" onclick="cargarGraficaMovimientos()" style="cursor: pointer;">
+          <div class="stat-card-accent" style="--sa:#0e7070"></div>
+          <div class="stat-card-bg"><i class="bi bi-clock-history"></i></div>
+          <div class="stat-icon-wrap" style="background:var(--teal-bg);color:var(--teal)">
+            <i class="bi bi-clock-history"></i>
+          </div>
+          <div class="stat-value" id="totalMovimientosValor">—</div>
+          <div class="stat-label">Movimientos</div>
+          <div class="stat-note">Registros de auditoría</div>
+        </div>
+
+        <!-- Activos por antigüedad -->
+        <div class="stat-card" onclick="cargarActivosAntiguedad()" style="cursor: pointer;">
+          <div class="stat-card-accent" style="--sa:var(--g)"></div>
+          <div class="stat-card-bg"><i class="bi bi-shield-fill-check"></i></div>
+          <div class="stat-icon-wrap" style="background:rgba(0,201,122,0.1);color:var(--g)">
+            <i class="bi bi-shield-fill-check"></i>
+          </div>
+          <div class="stat-value" id="activoMasAntiguoValor">—</div>
+          <div class="stat-label">Activo más antiguo</div>
+          <div class="stat-note" id="fechaMasAntiguaNote">—</div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Activos por Edificio</div>
+              <div class="card-sub">Distribución por ubicación registrada</div>
+            </div>
+          </div>
+          <!-- Ejemplo de una barra del chart -->
+          <div class="chart-row">
+            <span class="cr-label">Edificio A</span>
+            <div class="cr-track"><div class="cr-fill" style="width:70%;background:#00c97a"></div></div>
+            <span class="cr-num">—</span>
+          </div>
+          <div class="chart-row">
+            <span class="cr-label">Edificio B</span>
+            <div class="cr-track"><div class="cr-fill" style="width:50%;background:#1565c0"></div></div>
+            <span class="cr-num">—</span>
+          </div>
+          <div class="chart-row">
+            <span class="cr-label">Edificio C</span>
+            <div class="cr-track"><div class="cr-fill" style="width:30%;background:#0e7070"></div></div>
+            <span class="cr-num">—</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Editores más Activos</div>
+              <div class="card-sub">Por número de movimientos registrados</div>
+            </div>
+          </div>
+          <div class="chart-row">
+            <span class="cr-label">Usuario A</span>
+            <div class="cr-track"><div class="cr-fill" style="width:80%;background:#00c97a"></div></div>
+            <span class="cr-num">—</span>
+          </div>
+          <div class="chart-row">
+            <span class="cr-label">Usuario B</span>
+            <div class="cr-track"><div class="cr-fill" style="width:50%;background:#1565c0"></div></div>
+            <span class="cr-num">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT MOVEMENTS TABLE -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:18px 24px;border-bottom:1px solid var(--smoke-3);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div class="card-title">Movimientos Recientes</div>
+            <div class="card-sub">Últimas actualizaciones del sistema</div>
+          </div>
+          <button class="btn btn-ghost btn-sm">Ver todo <i class="bi bi-arrow-right"></i></button>
+        </div>
+        <div class="table-wrap" style="border:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Activo</th>
+                <th>Ubicación</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th>Editor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Fila ejemplo -->
+              <tr>
+                <td style="font-weight:500">Nombre del Activo</td>
+                <td style="color:rgba(8,13,11,0.5)">Edificio X, Oficina Y</td>
+                <td><span class="badge b-green">Bueno</span></td>
+                <td><span class="badge b-ink">AAAA-MM-DD</span></td>
+                <td><span class="badge b-blue">nombre.usuario</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<!-- MODAL: Gráfica de activos por fecha -->
+<div class="modal-overlay" id="graficaActivosModal">
+  <div class="modal modal-wide" style="max-width: 900px;">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="cerrarModalGrafica()"><i class="bi bi-x"></i></button>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <div>
+        <div class="m-title">📊 Activos Registrados</div>
+        <div class="m-sub">Períodos de 10 días - Últimos 90 días</div>
+      </div>
+      
+      <!-- FILTRO POR EDIFICIO -->
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label class="form-label" style="margin-bottom: 0;">Filtrar por:</label>
+        <select id="filtroEdificio" class="form-input" style="width: 200px;" onchange="cambiarFiltroEdificio()">
+          <option value="todos">Todos los edificios</option>
+        </select>
+      </div>
+    </div>
+    
+    <div style="margin: 10px 0 20px 0; height: 350px; position: relative;">
+      <canvas id="graficaActivos"></canvas>
+    </div>
+    
+    <!-- Resumen estadístico -->
+    <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 15px; background: var(--smoke); border-radius: var(--radius);">
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--g-dark);" id="totalPeriodo">0</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Total en período</div>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--g-dark);" id="promedioPeriodo">0</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Promedio por período</div>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--g-dark);" id="maximoPeriodo">0</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Período con más registros</div>
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button class="btn btn-outline btn-sm" onclick="cerrarModalGrafica()">
+        <i class="bi bi-x-lg"></i> Cerrar
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarGrafica()">
+        <i class="bi bi-download"></i> Exportar gráfica (PNG)
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarGraficaPDF()">
+        <i class="bi bi-filetype-pdf"></i> Exportar PDF
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarDatos()">
+        <i class="bi bi-table"></i> Exportar datos
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Activos por Usuario por Semana -->
+<div class="modal-overlay" id="graficaActivosUsuarioModal">
+  <div class="modal modal-wide" style="max-width: 900px;">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="cerrarModalActivosUsuario()"><i class="bi bi-x"></i></button>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <div>
+        <div class="m-title">📦 Activos Registrados por Usuario</div>
+        <div class="m-sub">Últimos 90 días - Agrupado por semana</div>
+      </div>
+      
+      <!-- FILTRO POR USUARIO -->
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label class="form-label" style="margin-bottom: 0;">Usuario:</label>
+        <select id="filtroUsuarioActivos" class="form-input" style="width: 220px;" onchange="cambiarFiltroUsuarioActivos()">
+          <option value="todos">Todos los usuarios</option>
+        </select>
+      </div>
+    </div>
+    
+    <!-- Resumen estadístico -->
+    <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 15px; background: var(--smoke); border-radius: var(--radius);">
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--g-dark);" id="totalActivosPeriodo">0</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Total activos (90 días)</div>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--blue);" id="topUsuarioNombre">—</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Usuario más activo</div>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--amber);" id="topUsuarioCantidad">0</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Activos registrados</div>
+      </div>
+    </div>
+    
+    <!-- Estadísticas del usuario seleccionado (oculto por defecto) -->
+    <div id="statsUsuarioSeleccionado" style="display: none; margin-bottom: 20px; padding: 15px; background: rgba(21,101,192,0.05); border-radius: var(--radius); border: 1px solid var(--blue);">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <i class="bi bi-person-fill" style="color: var(--blue); font-size: 20px;"></i>
+        <span style="font-weight: 600; font-size: 16px;" id="usuarioSeleccionadoNombre">Usuario</span>
+      </div>
+      <div style="display: flex; gap: 30px;">
+        <div>
+          <span style="font-size: 12px; color: rgba(8,13,11,0.5);">Total activos:</span>
+          <span style="font-size: 20px; font-weight: 700; color: var(--blue); margin-left: 10px;" id="usuarioTotalActivos">0</span>
+        </div>
+        <div>
+          <span style="font-size: 12px; color: rgba(8,13,11,0.5);">Semana más activa:</span>
+          <span style="font-size: 14px; font-weight: 600; margin-left: 10px;" id="usuarioSemanaTop">—</span>
+          <span style="font-size: 16px; font-weight: 700; color: var(--amber); margin-left: 5px;" id="usuarioCantidadTop">0</span>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin: 10px 0 20px 0; height: 350px; position: relative;">
+      <canvas id="graficaActivosUsuario"></canvas>
+    </div>
+    
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button class="btn btn-outline btn-sm" onclick="cerrarModalActivosUsuario()">
+        <i class="bi bi-x-lg"></i> Cerrar
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarGraficaActivosUsuario()">
+        <i class="bi bi-download"></i> Exportar gráfica (PNG)
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarGraficaActivosUsuarioPDF()">
+        <i class="bi bi-filetype-pdf"></i> Exportar PDF
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarDatosActivosUsuario()">
+        <i class="bi bi-table"></i> Exportar datos
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Movimientos por Semana -->
+<div class="modal-overlay" id="graficaMovimientosModal">
+  <div class="modal modal-wide" style="max-width: 900px;">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="cerrarModalMovimientos()"><i class="bi bi-x"></i></button>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <div>
+        <div class="m-title">📊 Movimientos de Auditoría</div>
+        <div class="m-sub">Últimos 90 días - Agrupado por semana</div>
+      </div>
+      
+      <!-- FILTRO POR USUARIO -->
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label class="form-label" style="margin-bottom: 0;">Usuario:</label>
+        <select id="filtroUsuarioMovimientos" class="form-input" style="width: 250px;" onchange="cambiarFiltroMovimientos()">
+          <option value="todos">Todos los usuarios</option>
+        </select>
+      </div>
+    </div>
+    
+    <!-- Resumen estadístico -->
+    <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 15px; background: var(--smoke); border-radius: var(--radius);">
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--teal);" id="totalMovimientosPeriodo">0</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Total movimientos (90 días)</div>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 20px; font-weight: 700; color: var(--blue);" id="topUsuarioMovimientos">—</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Usuario más activo</div>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <div style="font-size: 24px; font-weight: 700; color: var(--amber);" id="topUsuarioMovimientosCantidad">0</div>
+        <div style="font-size: 12px; color: rgba(8,13,11,0.5);">Movimientos realizados</div>
+      </div>
+    </div>
+    
+    <!-- Estadísticas del usuario seleccionado (oculto por defecto) -->
+    <div id="statsUsuarioMovimientos" style="display: none; margin-bottom: 20px; padding: 15px; background: rgba(0,150,136,0.05); border-radius: var(--radius); border: 1px solid var(--teal);">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <i class="bi bi-person-fill" style="color: var(--teal); font-size: 20px;"></i>
+        <span style="font-weight: 600; font-size: 16px;" id="usuarioMovimientosNombre">Usuario</span>
+      </div>
+      <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+        <div>
+          <span style="font-size: 12px; color: rgba(8,13,11,0.5);">Total movimientos:</span>
+          <span style="font-size: 20px; font-weight: 700; color: var(--teal); margin-left: 10px;" id="usuarioTotalMovimientos">0</span>
+        </div>
+        <div>
+          <span style="font-size: 12px; color: rgba(8,13,11,0.5);">Semana más activa:</span>
+          <span style="font-size: 14px; font-weight: 600; margin-left: 10px;" id="usuarioSemanaMovimientos">—</span>
+          <span style="font-size: 16px; font-weight: 700; color: var(--amber); margin-left: 5px;" id="usuarioCantidadMovimientos">0</span>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin: 10px 0 20px 0; height: 350px; position: relative;">
+      <canvas id="graficaMovimientos"></canvas>
+    </div>
+    
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button class="btn btn-outline btn-sm" onclick="cerrarModalMovimientos()">
+        <i class="bi bi-x-lg"></i> Cerrar
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarGraficaMovimientos()">
+        <i class="bi bi-download"></i> Exportar gráfica (PNG)
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarGraficaMovimientosPDF()">
+        <i class="bi bi-filetype-pdf"></i> Exportar PDF
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarDatosMovimientos()">
+        <i class="bi bi-table"></i> Exportar datos
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Activos por Antigüedad -->
+<div class="modal-overlay" id="activosAntiguedadModal">
+  <div class="modal modal-wide" style="max-width: 1000px;">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="cerrarModalActivosAntiguedad()"><i class="bi bi-x"></i></button>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <div>
+        <div class="m-title">📦 Activos por Antigüedad</div>
+        <div class="m-sub">Ordenados del más antiguo al más reciente</div>
+      </div>
+      
+      <!-- Resumen rápido -->
+      <div style="display: flex; gap: 15px;">
+        <div style="text-align: center;">
+          <span style="font-size: 12px; color: rgba(8,13,11,0.5);">Total activos</span>
+          <div style="font-size: 24px; font-weight: 700; color: var(--g-dark);" id="totalActivosAntiguedad">0</div>
+        </div>
+        <div style="text-align: center;">
+          <span style="font-size: 12px; color: rgba(8,13,11,0.5);">Con garantía</span>
+          <div style="font-size: 24px; font-weight: 700; color: var(--amber);" id="totalGarantiasAntiguedad">0</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Estadísticas de antigüedad -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+      <div style="background: rgba(0,201,122,0.05); padding: 10px; border-radius: var(--radius); text-align: center;">
+        <div style="font-size: 20px; font-weight: 700; color: var(--g-dark);" id="statsUltimoMes">0</div>
+        <div style="font-size: 11px; color: rgba(8,13,11,0.5);">Último mes</div>
+      </div>
+      <div style="background: rgba(21,101,192,0.05); padding: 10px; border-radius: var(--radius); text-align: center;">
+        <div style="font-size: 20px; font-weight: 700; color: var(--blue);" id="statsUnoTresMeses">0</div>
+        <div style="font-size: 11px; color: rgba(8,13,11,0.5);">1-3 meses</div>
+      </div>
+      <div style="background: rgba(255,152,0,0.05); padding: 10px; border-radius: var(--radius); text-align: center;">
+        <div style="font-size: 20px; font-weight: 700; color: var(--amber);" id="statsTresSeisMeses">0</div>
+        <div style="font-size: 11px; color: rgba(8,13,11,0.5);">3-6 meses</div>
+      </div>
+      <div style="background: rgba(192,57,43,0.05); padding: 10px; border-radius: var(--radius); text-align: center;">
+        <div style="font-size: 20px; font-weight: 700; color: var(--red);" id="statsMasSeisMeses">0</div>
+        <div style="font-size: 11px; color: rgba(8,13,11,0.5);">+6 meses</div>
+      </div>
+    </div>
+    
+    <!-- Activo más antiguo -->
+    <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, rgba(0,201,122,0.1) 0%, transparent 100%); border-radius: var(--radius);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <i class="bi bi-trophy-fill" style="color: var(--g); font-size: 24px;"></i>
+        <div>
+          <span style="font-size: 12px; color: rgba(8,13,11,0.5);">Activo más antiguo</span>
+          <div style="font-size: 18px; font-weight: 600;" id="activoMasAntiguo">—</div>
+          <div style="font-size: 12px; color: rgba(8,13,11,0.5);" id="fechaMasAntigua">—</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tabla de activos -->
+    <div style="margin-top: 20px; max-height: 400px; overflow-y: auto; border: 1px solid var(--smoke-3); border-radius: var(--radius);">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="position: sticky; top: 0; background: var(--smoke);">
+          <tr>
+            <th style="padding: 10px; text-align: left;">#</th>
+            <th style="padding: 10px; text-align: left;">Activo</th>
+            <th style="padding: 10px; text-align: left;">Fecha ingreso</th>
+            <th style="padding: 10px; text-align: left;">Hora</th>
+            <th style="padding: 10px; text-align: left;">Edificio</th>
+            <th style="padding: 10px; text-align: left;">Ubicación</th>
+            <th style="padding: 10px; text-align: left;">Antigüedad</th>
+            <th style="padding: 10px; text-align: left;">Garantía</th>
+          </tr>
+        </thead>
+        <tbody id="tablaActivosAntiguedad">
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 30px;">
+              <i class="bi bi-arrow-repeat" style="font-size: 24px; animation: spin 1s linear infinite;"></i>
+              <p>Cargando activos...</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+      <button class="btn btn-outline btn-sm" onclick="cerrarModalActivosAntiguedad()">
+        <i class="bi bi-x-lg"></i> Cerrar
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarTablaActivosPDF()">
+        <i class="bi bi-filetype-pdf"></i> Exportar PDF
+      </button>
+      <button class="btn btn-green btn-sm" onclick="exportarTablaActivos()">
+        <i class="bi bi-download"></i> Exportar CSV
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Incluir Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+
+<script>
+let chartInstance = null;
+
+// Función única para cargar TODAS las estadísticas
+function cargarEstadisticas() {
+  fetch('/api/dashboard_stats?_=' + Date.now())
+    .then(response => response.json())
+    .then(data => {
+      console.log('📊 Estadísticas completas:', data);
+      
+      // Actualizar tarjetas
+      document.getElementById('totalActivosValor').textContent = data.activos || '0';
+      document.getElementById('totalUsuariosValor').textContent = data.usuarios || '0';
+      document.getElementById('totalMovimientosValor').textContent = data.movimientos || '0';
+      
+      // Activo más antiguo
+      const activoAntiguo = document.getElementById('activoMasAntiguoValor');
+      const fechaAntigua = document.getElementById('fechaMasAntiguaNote');
+      
+      if (activoAntiguo) {
+        if (data.activo_mas_antiguo && data.activo_mas_antiguo !== 'Ninguno') {
+          activoAntiguo.textContent = data.activo_mas_antiguo;
+          fechaAntigua.textContent = `📅 Ingresado: ${data.fecha_mas_antigua}`;
+        } else {
+          activoAntiguo.textContent = '—';
+          fechaAntigua.textContent = 'No hay activos';
+        }
+      }
+      
+      // Nota de administradores
+      if (document.getElementById('usuarios-note')) {
+        document.getElementById('usuarios-note').textContent = `${data.administradores || 0} administradores`;
+      }
+    })
+    .catch(error => {
+      console.error('❌ Error cargando estadísticas:', error);
+      // Valores por defecto en caso de error
+      document.getElementById('totalActivosValor').textContent = '0';
+      document.getElementById('totalUsuariosValor').textContent = '0';
+      document.getElementById('totalMovimientosValor').textContent = '0';
+      document.getElementById('activoMasAntiguoValor').textContent = '—';
+      document.getElementById('fechaMasAntiguaNote').textContent = 'Error de conexión';
+    });
+}
+
+// Función para cargar gráfica de activos
+function cargarGraficaActivos() {
+  showToast('Cargando gráfica...', 'info');
+  
+  const edificioId = document.getElementById('filtroEdificio')?.value || 'todos';
+  
+  fetch(`/api/activos_por_fecha?edificio_id=${edificioId}`)
+    .then(response => response.json())
+    .then(data => {
+      console.log('Datos gráfica:', data);
+      
+      // Llenar select de edificios
+      const selectEdificio = document.getElementById('filtroEdificio');
+      if (selectEdificio && selectEdificio.options.length === 1) {
+        data.edificios.forEach(ed => {
+          const option = document.createElement('option');
+          option.value = ed.id;
+          option.textContent = ed.nombre;
+          selectEdificio.appendChild(option);
+        });
+      }
+      
+      // Calcular estadísticas
+      const total = data.cantidades.reduce((a, b) => a + b, 0);
+      const promedio = data.cantidades.length > 0 ? (total / data.cantidades.length).toFixed(1) : 0;
+      const maximo = Math.max(...data.cantidades, 0);
+      
+      document.getElementById('totalPeriodo').textContent = total;
+      document.getElementById('promedioPeriodo').textContent = promedio;
+      document.getElementById('maximoPeriodo').textContent = maximo;
+      
+      const ctx = document.getElementById('graficaActivos').getContext('2d');
+      
+      if (chartInstance) chartInstance.destroy();
+      
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.periodos,
+          datasets: [{
+            label: 'Activos Registrados',
+            data: data.cantidades,
+            backgroundColor: 'rgba(0, 201, 122, 0.7)',
+            borderColor: '#00c97a',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#080d0b',
+              titleColor: '#fff',
+              bodyColor: 'rgba(255,255,255,0.8)',
+              borderColor: '#00c97a'
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 }
+            }
+          }
+        }
+      });
+      
+      openModal('graficaActivosModal');
+    })
+    .catch(error => {
+      console.error('Error cargando gráfica:', error);
+      showToast('Error al cargar la gráfica', 'error');
+    });
+}
+
+function cambiarFiltroEdificio() {
+  if (chartInstance) chartInstance.destroy();
+  cargarGraficaActivos();
+}
+
+function cerrarModalGrafica() {
+  closeModal('graficaActivosModal');
+}
+
+function exportarGrafica() {
+  const canvas = document.getElementById('graficaActivos');
+  const link = document.createElement('a');
+  link.download = 'grafica_activos.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function exportarDatos() {
+  if (!chartInstance) return;
+  
+  const periodos = chartInstance.data.labels;
+  const cantidades = chartInstance.data.datasets[0].data;
+  
+  let csv = "Período,Cantidad de Activos\n";
+  for (let i = 0; i < periodos.length; i++) {
+    csv += `"${periodos[i]}",${cantidades[i]}\n`;
+  }
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'activos_por_periodo.csv';
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+// Mobile sidebar toggle
+const menuBtn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+
+if (menuBtn && sidebar && overlay) {
+  menuBtn.addEventListener('click', () => {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  });
+  
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  });
+}
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+});
+
+// Cargar datos al iniciar - UNA SOLA VEZ
+document.addEventListener('DOMContentLoaded', function() {
+  // Pequeño retraso para asegurar DOM listo
+  setTimeout(() => {
+    cargarEstadisticas();
+  }, 100);
+});
+
+// Grafica de usuarios por semana
+let chartActivosUsuarioInstance = null;
+
+// Función para cargar gráfica de activos por usuario
+function cargarGraficaActivosUsuario() {
+  showToast('Cargando gráfica de activos por usuario...', 'info');
+  
+  const usuarioId = document.getElementById('filtroUsuarioActivos')?.value || 'todos';
+  
+  fetch(`/api/activos_por_usuario_semana?usuario_id=${usuarioId}`)
+    .then(response => response.json())
+    .then(data => {
+      console.log('Datos activos por usuario:', data);
+      
+      // Llenar select de usuarios
+      const selectUsuario = document.getElementById('filtroUsuarioActivos');
+      if (selectUsuario && selectUsuario.options.length === 1) {
+        data.usuarios.forEach(usr => {
+          const option = document.createElement('option');
+          option.value = usr.id;
+          option.textContent = `${usr.nombre} (@${usr.username})`;
+          selectUsuario.appendChild(option);
+        });
+      }
+      
+      // Actualizar estadísticas generales
+      document.getElementById('totalActivosPeriodo').textContent = data.total_activos;
+      document.getElementById('topUsuarioNombre').textContent = data.top_usuario;
+      document.getElementById('topUsuarioCantidad').textContent = data.top_cantidad;
+      
+      // Si hay un usuario seleccionado, mostrar sus estadísticas
+      if (usuarioId !== 'todos') {
+        fetch(`/api/stats_usuario/${usuarioId}`)
+          .then(response => response.json())
+          .then(stats => {
+            document.getElementById('statsUsuarioSeleccionado').style.display = 'flex';
+            
+            // Buscar nombre del usuario
+            const usuarioSel = data.usuarios.find(u => u.id == usuarioId);
+            document.getElementById('usuarioSeleccionadoNombre').textContent = 
+              usuarioSel ? `${usuarioSel.nombre} (@${usuarioSel.username})` : 'Usuario';
+            
+            document.getElementById('usuarioTotalActivos').textContent = stats.total_activos;
+            
+            if (stats.top_semana) {
+              const fecha = new Date(stats.top_semana);
+              const fechaFin = new Date(fecha);
+              fechaFin.setDate(fechaFin.getDate() + 6);
+              document.getElementById('usuarioSemanaTop').textContent = 
+                `${fecha.toISOString().split('T')[0]} al ${fechaFin.toISOString().split('T')[0]}`;
+            } else {
+              document.getElementById('usuarioSemanaTop').textContent = '—';
+            }
+            document.getElementById('usuarioCantidadTop').textContent = stats.top_cantidad;
+          });
+      } else {
+        document.getElementById('statsUsuarioSeleccionado').style.display = 'none';
+      }
+      
+      const ctx = document.getElementById('graficaActivosUsuario').getContext('2d');
+      
+      if (chartActivosUsuarioInstance) chartActivosUsuarioInstance.destroy();
+      
+      chartActivosUsuarioInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.semanas,
+          datasets: [{
+            label: usuarioId === 'todos' ? 'Activos registrados (todos los usuarios)' : 'Activos registrados',
+            data: data.cantidades,
+            backgroundColor: 'rgba(0, 201, 122, 0.7)',
+            borderColor: '#00c97a',
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#080d0b',
+              titleColor: '#fff',
+              bodyColor: 'rgba(255,255,255,0.8)',
+              borderColor: '#00c97a',
+              borderWidth: 1,
+              callbacks: {
+                label: (context) => {
+                  return `📦 Activos: ${context.raw}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 },
+              title: {
+                display: true,
+                text: 'Cantidad de activos'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Semana'
+              }
+            }
+          }
+        }
+      });
+      
+      openModal('graficaActivosUsuarioModal');
+    })
+    .catch(error => {
+      console.error('Error cargando gráfica de activos por usuario:', error);
+      showToast('Error al cargar la gráfica', 'error');
+    });
+}
+
+function cambiarFiltroUsuarioActivos() {
+  if (chartActivosUsuarioInstance) chartActivosUsuarioInstance.destroy();
+  cargarGraficaActivosUsuario();
+}
+
+function cerrarModalActivosUsuario() {
+  closeModal('graficaActivosUsuarioModal');
+}
+
+function exportarGraficaActivosUsuario() {
+  const canvas = document.getElementById('graficaActivosUsuario');
+  const link = document.createElement('a');
+  link.download = 'activos_por_usuario.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function exportarDatosActivosUsuario() {
+  if (!chartActivosUsuarioInstance) return;
+  
+  const semanas = chartActivosUsuarioInstance.data.labels;
+  const cantidades = chartActivosUsuarioInstance.data.datasets[0].data;
+  
+  let csv = "Semana,Cantidad de Activos\n";
+  for (let i = 0; i < semanas.length; i++) {
+    csv += `"${semanas[i]}",${cantidades[i]}\n`;
+  }
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'activos_por_usuario.csv';
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+let chartMovimientosInstance = null;
+
+// Función para cargar gráfica de movimientos
+function cargarGraficaMovimientos() {
+  showToast('Cargando gráfica de movimientos...', 'info');
+  
+  const usuarioId = document.getElementById('filtroUsuarioMovimientos')?.value || 'todos';
+  
+  fetch(`/api/movimientos_por_semana?usuario_id=${usuarioId}`)
+    .then(response => response.json())
+    .then(data => {
+      console.log('Datos movimientos:', data);
+      
+      // Llenar select de usuarios
+      const selectUsuario = document.getElementById('filtroUsuarioMovimientos');
+      if (selectUsuario && selectUsuario.options.length === 1) {
+        data.usuarios.forEach(usr => {
+          const option = document.createElement('option');
+          option.value = usr.id;
+          option.textContent = `${usr.nombre} (@${usr.username})`;
+          selectUsuario.appendChild(option);
+        });
+      }
+      
+      // Actualizar estadísticas generales
+      document.getElementById('totalMovimientosPeriodo').textContent = data.total_movimientos;
+      document.getElementById('topUsuarioMovimientos').textContent = data.top_usuario;
+      document.getElementById('topUsuarioMovimientosCantidad').textContent = data.top_cantidad;
+      
+      // Si hay un usuario seleccionado, mostrar sus estadísticas
+      if (usuarioId !== 'todos') {
+        fetch(`/api/stats_movimientos_usuario/${usuarioId}`)
+          .then(response => response.json())
+          .then(stats => {
+            document.getElementById('statsUsuarioMovimientos').style.display = 'flex';
+            
+            // Buscar nombre del usuario
+            const usuarioSel = data.usuarios.find(u => u.id == usuarioId);
+            document.getElementById('usuarioMovimientosNombre').textContent = 
+              usuarioSel ? `${usuarioSel.nombre} (@${usuarioSel.username})` : 'Usuario';
+            
+            document.getElementById('usuarioTotalMovimientos').textContent = stats.total_movimientos;
+            
+            if (stats.top_semana) {
+              const fecha = new Date(stats.top_semana);
+              const fechaFin = new Date(fecha);
+              fechaFin.setDate(fechaFin.getDate() + 6);
+              document.getElementById('usuarioSemanaMovimientos').textContent = 
+                `${fecha.toISOString().split('T')[0]} al ${fechaFin.toISOString().split('T')[0]}`;
+            } else {
+              document.getElementById('usuarioSemanaMovimientos').textContent = '—';
+            }
+            document.getElementById('usuarioCantidadMovimientos').textContent = stats.top_cantidad;
+          });
+      } else {
+        document.getElementById('statsUsuarioMovimientos').style.display = 'none';
+      }
+      
+      const ctx = document.getElementById('graficaMovimientos').getContext('2d');
+      
+      if (chartMovimientosInstance) chartMovimientosInstance.destroy();
+      
+      chartMovimientosInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.semanas,
+          datasets: [{
+            label: usuarioId === 'todos' ? 'Movimientos (todos los usuarios)' : 'Movimientos',
+            data: data.cantidades,
+            borderColor: '#0e7070',
+            backgroundColor: 'rgba(14, 112, 112, 0.1)',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: '#0e7070',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#080d0b',
+              titleColor: '#fff',
+              bodyColor: 'rgba(255,255,255,0.8)',
+              borderColor: '#0e7070',
+              borderWidth: 1,
+              callbacks: {
+                label: (context) => {
+                  return `📝 Movimientos: ${context.raw}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 },
+              title: {
+                display: true,
+                text: 'Cantidad de movimientos'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Semana'
+              }
+            }
+          }
+        }
+      });
+      
+      openModal('graficaMovimientosModal');
+    })
+    .catch(error => {
+      console.error('Error cargando gráfica de movimientos:', error);
+      showToast('Error al cargar la gráfica', 'error');
+    });
+}
+
+function cambiarFiltroMovimientos() {
+  if (chartMovimientosInstance) chartMovimientosInstance.destroy();
+  cargarGraficaMovimientos();
+}
+
+function cerrarModalMovimientos() {
+  closeModal('graficaMovimientosModal');
+}
+
+function exportarGraficaMovimientos() {
+  const canvas = document.getElementById('graficaMovimientos');
+  const link = document.createElement('a');
+  link.download = 'movimientos_por_semana.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function exportarDatosMovimientos() {
+  if (!chartMovimientosInstance) return;
+  
+  const semanas = chartMovimientosInstance.data.labels;
+  const cantidades = chartMovimientosInstance.data.datasets[0].data;
+  
+  let csv = "Semana,Cantidad de Movimientos\n";
+  for (let i = 0; i < semanas.length; i++) {
+    csv += `"${semanas[i]}",${cantidades[i]}\n`;
+  }
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'movimientos_por_semana.csv';
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+// Función para cargar activos por antigüedad
+function cargarActivosAntiguedad() {
+  showToast('Cargando activos...', 'info');
+  
+  fetch('/api/activos_por_antiguedad')
+    .then(response => response.json())
+    .then(data => {
+      console.log('Datos activos por antigüedad:', data);
+      
+      // Actualizar estadísticas
+      document.getElementById('totalActivosAntiguedad').textContent = data.total_activos;
+      document.getElementById('totalGarantiasAntiguedad').textContent = data.total_garantias;
+      document.getElementById('activoMasAntiguo').textContent = data.activo_mas_antiguo;
+      document.getElementById('fechaMasAntigua').textContent = `Ingresado: ${data.fecha_mas_antigua}`;
+      
+      // Cargar estadísticas adicionales
+      fetch('/api/activos_antiguos_stats')
+        .then(response => response.json())
+        .then(stats => {
+          document.getElementById('statsUltimoMes').textContent = stats.ultimo_mes;
+          document.getElementById('statsUnoTresMeses').textContent = stats.uno_tres_meses;
+          document.getElementById('statsTresSeisMeses').textContent = stats.tres_seis_meses;
+          document.getElementById('statsMasSeisMeses').textContent = stats.mas_seis_meses;
+        });
+      
+      // Llenar tabla
+      const tbody = document.getElementById('tablaActivosAntiguedad');
+      tbody.innerHTML = '';
+      
+      if (data.activos && data.activos.length > 0) {
+        data.activos.forEach((activo, index) => {
+          const row = document.createElement('tr');
+          
+          // Color según antigüedad
+          let colorFila = '';
+          if (activo.dias > 180) colorFila = 'background: rgba(192,57,43,0.03);';
+          else if (activo.dias > 90) colorFila = 'background: rgba(255,152,0,0.03);';
+          else if (activo.dias > 30) colorFila = 'background: rgba(21,101,192,0.03);';
+          
+          row.style = colorFila;
+          
+          // Badge de antigüedad
+          let badgeAntiguedad = '';
+          if (activo.dias > 180) badgeAntiguedad = '<span class="badge b-red">+6 meses</span>';
+          else if (activo.dias > 90) badgeAntiguedad = '<span class="badge b-amber">3-6 meses</span>';
+          else if (activo.dias > 30) badgeAntiguedad = '<span class="badge b-blue">1-3 meses</span>';
+          else badgeAntiguedad = '<span class="badge b-green">Reciente</span>';
+          
+          // Badge de garantía
+          let badgeGarantia = activo.estado === 'Con garantía' 
+            ? '<span class="badge b-green">Con garantía</span>' 
+            : '<span class="badge b-ink">Sin garantía</span>';
+          
+          row.innerHTML = `
+            <td style="padding: 8px 10px;">${index + 1}</td>
+            <td style="padding: 8px 10px; font-weight: 500;">${activo.nombre}</td>
+            <td style="padding: 8px 10px;">${activo.fecha}</td>
+            <td style="padding: 8px 10px;">${activo.hora}</td>
+            <td style="padding: 8px 10px;">${activo.edificio}</td>
+            <td style="padding: 8px 10px;">${activo.ubicacion}</td>
+            <td style="padding: 8px 10px;">${badgeAntiguedad}</td>
+            <td style="padding: 8px 10px;">${badgeGarantia}</td>
+          `;
+          
+          tbody.appendChild(row);
+        });
+      } else {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 30px;">
+              No hay activos registrados
+            </td>
+          </tr>
+        `;
+      }
+      
+      openModal('activosAntiguedadModal');
+    })
+    .catch(error => {
+      console.error('Error cargando activos:', error);
+      showToast('Error al cargar los activos', 'error');
+    });
+}
+
+function cerrarModalActivosAntiguedad() {
+  closeModal('activosAntiguedadModal');
+}
+
+function exportarTablaActivos() {
+  const tabla = document.getElementById('tablaActivosAntiguedad');
+  const filas = tabla.querySelectorAll('tr');
+  
+  let csv = "#,Activo,Fecha ingreso,Hora,Edificio,Ubicación,Antigüedad,Garantía\n";
+  
+  filas.forEach(fila => {
+    const celdas = fila.querySelectorAll('td');
+    if (celdas.length > 0) {
+      const filaDatos = [];
+      celdas.forEach(celda => {
+        // Limpiar HTML de los badges
+        let texto = celda.innerText.replace(/,/g, ';');
+        filaDatos.push(`"${texto}"`);
+      });
+      csv += filaDatos.join(',') + '\n';
+    }
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'activos_por_antiguedad.csv';
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+// Función para exportar tabla de activos a PDF
+// Función para exportar tabla de activos a PDF
+function exportarTablaActivosPDF() {
+  const tabla = document.getElementById('tablaActivosAntiguedad');
+  const filas = tabla.querySelectorAll('tr');
+  
+  // Obtener datos de la tabla
+  const datos = [];
+  filas.forEach(fila => {
+    const celdas = fila.querySelectorAll('td');
+    if (celdas.length > 0) {
+      const filaDatos = [];
+      celdas.forEach(celda => {
+        // Limpiar HTML de los badges y obtener solo texto
+        let texto = celda.innerText.replace(/,/g, ';').trim();
+        filaDatos.push(texto);
+      });
+      datos.push(filaDatos);
+    }
+  });
+  
+  // Obtener encabezados
+  const encabezados = [
+    '#', 'Activo', 'Fecha ingreso', 'Hora', 'Edificio', 'Ubicación', 'Antigüedad', 'Garantía'
+  ];
+  
+  // Obtener estadísticas
+  const totalActivos = document.getElementById('totalActivosAntiguedad').innerText;
+  const totalGarantias = document.getElementById('totalGarantiasAntiguedad').innerText;
+  const activoMasAntiguo = document.getElementById('activoMasAntiguo').innerText;
+  const fechaMasAntigua = document.getElementById('fechaMasAntigua').innerText;
+  const statsUltimoMes = document.getElementById('statsUltimoMes').innerText;
+  const statsUnoTresMeses = document.getElementById('statsUnoTresMeses').innerText;
+  const statsTresSeisMeses = document.getElementById('statsTresSeisMeses').innerText;
+  const statsMasSeisMeses = document.getElementById('statsMasSeisMeses').innerText;
+  
+  // Crear contenido HTML para el PDF
+  const contenido = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Reporte de Activos por Antigüedad</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          font-size: 12px;
+        }
+        h1 {
+          color: #2b7a4b;
+          text-align: center;
+          margin-bottom: 10px;
+        }
+        .subtitle {
+          text-align: center;
+          color: #666;
+          margin-bottom: 30px;
+        }
+        .stats-container {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f5f5f5;
+          border-radius: 8px;
+        }
+        .stat-box {
+          text-align: center;
+          flex: 1;
+        }
+        .stat-number {
+          font-size: 24px;
+          font-weight: bold;
+          color: #2b7a4b;
+        }
+        .stat-label {
+          font-size: 10px;
+          color: #666;
+        }
+        .antiguedad-stats {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f9f9f9;
+          border-radius: 8px;
+        }
+        .antiguedad-item {
+          text-align: center;
+          flex: 1;
+        }
+        .antiguedad-number {
+          font-size: 18px;
+          font-weight: bold;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+        th {
+          background-color: #f2f2f2;
+          font-weight: bold;
+        }
+        .footer {
+          margin-top: 30px;
+          text-align: center;
+          font-size: 10px;
+          color: #999;
+        }
+        .highlight {
+          background-color: #e8f5e9;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>SGAFAQ - Sistema de Gestión de Activos Fijos</h1>
+      <div class="subtitle">Reporte de Activos por Antigüedad</div>
+      <div class="subtitle">Generado el: ${new Date().toLocaleString()}</div>
+      
+      <div class="stats-container">
+        <div class="stat-box">
+          <div class="stat-number">${totalActivos}</div>
+          <div class="stat-label">Total de Activos</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${totalGarantias}</div>
+          <div class="stat-label">Con Garantía</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${activoMasAntiguo}</div>
+          <div class="stat-label">Activo más antiguo</div>
+          <div style="font-size: 10px;">${fechaMasAntigua}</div>
+        </div>
+      </div>
+      
+      <div class="antiguedad-stats">
+        <div class="antiguedad-item">
+          <div class="antiguedad-number" style="color:#2b7a4b;">${statsUltimoMes}</div>
+          <div class="stat-label">Último mes</div>
+        </div>
+        <div class="antiguedad-item">
+          <div class="antiguedad-number" style="color:#1565c0;">${statsUnoTresMeses}</div>
+          <div class="stat-label">1-3 meses</div>
+        </div>
+        <div class="antiguedad-item">
+          <div class="antiguedad-number" style="color:#ff9800;">${statsTresSeisMeses}</div>
+          <div class="stat-label">3-6 meses</div>
+        </div>
+        <div class="antiguedad-item">
+          <div class="antiguedad-number" style="color:#c0392b;">${statsMasSeisMeses}</div>
+          <div class="stat-label">+6 meses</div>
+        </div>
+      </div>
+      
+      <h3>📋 Lista de Activos</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Activo</th>
+            <th>Fecha ingreso</th>
+            <th>Hora</th>
+            <th>Edificio</th>
+            <th>Ubicación</th>
+            <th>Antigüedad</th>
+            <th>Garantía</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${datos.map((fila, index) => `
+            <tr>
+              <td>${fila[0]}</td>
+              <td>${fila[1]}</td>
+              <td>${fila[2]}</td>
+              <td>${fila[3]}</td>
+              <td>${fila[4]}</td>
+              <td>${fila[5]}</td>
+              <td>${fila[6]}</td>
+              <td>${fila[7]}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <p>SGAFAQ - Sistema de Gestión de Activos Fijos</p>
+        <p>Reporte generado automáticamente | ${new Date().toLocaleDateString()}</p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  // Abrir ventana para imprimir (generar PDF)
+  const ventana = window.open('', '_blank');
+  ventana.document.write(contenido);
+  ventana.document.close();
+  ventana.focus();
+  ventana.print();
+}
+// Función para exportar la gráfica a PDF
+function exportarGraficaPDF() {
+  const canvas = document.getElementById('graficaActivos');
+  const ctx = canvas.getContext('2d');
+  
+  // Obtener datos de la gráfica
+  const titulo = document.querySelector('#graficaActivosModal .m-title').innerText;
+  const subtitulo = document.querySelector('#graficaActivosModal .m-sub').innerText;
+  const total = document.getElementById('totalPeriodo').innerText;
+  const promedio = document.getElementById('promedioPeriodo').innerText;
+  const maximo = document.getElementById('maximoPeriodo').innerText;
+  const filtroSelect = document.getElementById('filtroEdificio');
+  const filtroSeleccionado = filtroSelect.options[filtroSelect.selectedIndex]?.text || 'Todos los edificios';
+  
+  // Convertir canvas a imagen
+  const imagenData = canvas.toDataURL('image/png');
+  
+  // Obtener datos de la tabla (periodos y cantidades)
+  let periodos = [];
+  let cantidades = [];
+  if (chartInstance && chartInstance.data) {
+    periodos = chartInstance.data.labels;
+    cantidades = chartInstance.data.datasets[0].data;
+  }
+  
+  // Crear contenido HTML para el PDF
+  const contenido = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Reporte de Activos por Período</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          font-size: 12px;
+        }
+        h1 {
+          color: #2b7a4b;
+          text-align: center;
+          margin-bottom: 5px;
+        }
+        .subtitle {
+          text-align: center;
+          color: #666;
+          margin-bottom: 20px;
+        }
+        .filter-info {
+          text-align: center;
+          font-size: 11px;
+          color: #888;
+          margin-bottom: 20px;
+        }
+        .stats-container {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f5f5f5;
+          border-radius: 8px;
+        }
+        .stat-box {
+          text-align: center;
+          flex: 1;
+        }
+        .stat-number {
+          font-size: 24px;
+          font-weight: bold;
+          color: #2b7a4b;
+        }
+        .stat-label {
+          font-size: 10px;
+          color: #666;
+        }
+        .chart-container {
+          text-align: center;
+          margin: 20px 0;
+        }
+        .chart-image {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+          font-size: 10px;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 6px;
+          text-align: center;
+        }
+        th {
+          background-color: #f2f2f2;
+          font-weight: bold;
+        }
+        .footer {
+          margin-top: 30px;
+          text-align: center;
+          font-size: 10px;
+          color: #999;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>SGAFAQ - Sistema de Gestión de Activos Fijos</h1>
+      <div class="subtitle">${titulo}</div>
+      <div class="subtitle">${subtitulo}</div>
+      <div class="filter-info">Filtro aplicado: ${filtroSeleccionado}</div>
+      <div class="filter-info">Generado el: ${new Date().toLocaleString()}</div>
+      
+      <div class="stats-container">
+        <div class="stat-box">
+          <div class="stat-number">${total}</div>
+          <div class="stat-label">Total en período</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${promedio}</div>
+          <div class="stat-label">Promedio por período</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${maximo}</div>
+          <div class="stat-label">Período con más registros</div>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <h3>📊 Gráfica de Activos Registrados</h3>
+        <img src="${imagenData}" class="chart-image" style="max-width: 100%;">
+      </div>
+      
+      <h3>📋 Datos por Período</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Período</th>
+            <th>Cantidad de Activos</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${periodos.map((periodo, index) => `
+            <tr>
+              <td>${periodo}</td>
+              <td>${cantidades[index] || 0}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <p>SGAFAQ - Sistema de Gestión de Activos Fijos</p>
+        <p>Reporte generado automáticamente | ${new Date().toLocaleDateString()}</p>
+        <p>Datos correspondientes a los últimos 90 días, agrupados por períodos de 10 días</p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  // Abrir ventana para imprimir (generar PDF)
+  const ventana = window.open('', '_blank');
+  ventana.document.write(contenido);
+  ventana.document.close();
+  ventana.focus();
+  ventana.print();
+}
+
+// Función para exportar la gráfica de movimientos a PDF
+function exportarGraficaMovimientosPDF() {
+  const canvas = document.getElementById('graficaMovimientos');
+  if (!canvas) {
+    showToast('No hay gráfica para exportar', 'error');
+    return;
+  }
+  
+  const imagenData = canvas.toDataURL('image/png');
+  
+  // Obtener datos de la gráfica
+  const titulo = document.querySelector('#graficaMovimientosModal .m-title').innerText;
+  const subtitulo = document.querySelector('#graficaMovimientosModal .m-sub').innerText;
+  const total = document.getElementById('totalMovimientosPeriodo').innerText;
+  const topUsuario = document.getElementById('topUsuarioMovimientos').innerText;
+  const topCantidad = document.getElementById('topUsuarioMovimientosCantidad').innerText;
+  
+  // Obtener filtro seleccionado
+  const filtroSelect = document.getElementById('filtroUsuarioMovimientos');
+  const filtroSeleccionado = filtroSelect.options[filtroSelect.selectedIndex]?.text || 'Todos los usuarios';
+  
+  // Obtener datos de usuario seleccionado (si está visible)
+  const statsVisible = document.getElementById('statsUsuarioMovimientos').style.display !== 'none';
+  let usuarioSeleccionado = '';
+  let usuarioTotal = '';
+  let usuarioSemana = '';
+  let usuarioCantidad = '';
+  
+  if (statsVisible) {
+    usuarioSeleccionado = document.getElementById('usuarioMovimientosNombre').innerText;
+    usuarioTotal = document.getElementById('usuarioTotalMovimientos').innerText;
+    usuarioSemana = document.getElementById('usuarioSemanaMovimientos').innerText;
+    usuarioCantidad = document.getElementById('usuarioCantidadMovimientos').innerText;
+  }
+  
+  // Obtener datos de la gráfica
+  let semanas = [];
+  let cantidades = [];
+  if (chartMovimientosInstance && chartMovimientosInstance.data) {
+    semanas = chartMovimientosInstance.data.labels;
+    cantidades = chartMovimientosInstance.data.datasets[0].data;
+  }
+  
+  // Crear contenido HTML para el PDF
+  const contenido = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Reporte de Movimientos de Auditoría</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          font-size: 12px;
+        }
+        h1 {
+          color: #0e7070;
+          text-align: center;
+          margin-bottom: 5px;
+        }
+        .subtitle {
+          text-align: center;
+          color: #666;
+          margin-bottom: 20px;
+        }
+        .filter-info {
+          text-align: center;
+          font-size: 11px;
+          color: #888;
+          margin-bottom: 20px;
+        }
+        .stats-container {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f5f5f5;
+          border-radius: 8px;
+        }
+        .stat-box {
+          text-align: center;
+          flex: 1;
+        }
+        .stat-number {
+          font-size: 24px;
+          font-weight: bold;
+          color: #0e7070;
+        }
+        .stat-label {
+          font-size: 10px;
+          color: #666;
+        }
+        .usuario-stats {
+          margin-bottom: 20px;
+          padding: 15px;
+          background: rgba(14, 112, 112, 0.05);
+          border-radius: 8px;
+          border: 1px solid #0e7070;
+        }
+        .usuario-stats h3 {
+          margin: 0 0 10px 0;
+          color: #0e7070;
+        }
+        .usuario-stats-detail {
+          display: flex;
+          gap: 30px;
+          flex-wrap: wrap;
+        }
+        .chart-container {
+          text-align: center;
+          margin: 20px 0;
+        }
+        .chart-image {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+          font-size: 10px;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: center;
+        }
+        th {
+          background-color: #f2f2f2;
+          font-weight: bold;
+        }
+        .footer {
+          margin-top: 30px;
+          text-align: center;
+          font-size: 10px;
+          color: #999;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>SGAFAQ - Sistema de Gestión de Activos Fijos</h1>
+      <div class="subtitle">${titulo}</div>
+      <div class="subtitle">${subtitulo}</div>
+      <div class="filter-info">Filtro aplicado: ${filtroSeleccionado}</div>
+      <div class="filter-info">Generado el: ${new Date().toLocaleString()}</div>
+      
+      <div class="stats-container">
+        <div class="stat-box">
+          <div class="stat-number">${total}</div>
+          <div class="stat-label">Total movimientos</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${topUsuario}</div>
+          <div class="stat-label">Usuario más activo</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${topCantidad}</div>
+          <div class="stat-label">Movimientos realizados</div>
+        </div>
+      </div>
+      
+      ${statsVisible ? `
+      <div class="usuario-stats">
+        <h3>📊 Estadísticas del Usuario Seleccionado</h3>
+        <div class="usuario-stats-detail">
+          <div><strong>Usuario:</strong> ${usuarioSeleccionado}</div>
+          <div><strong>Total movimientos:</strong> ${usuarioTotal}</div>
+          <div><strong>Semana más activa:</strong> ${usuarioSemana}</div>
+          <div><strong>Movimientos esa semana:</strong> ${usuarioCantidad}</div>
+        </div>
+      </div>
+      ` : ''}
+      
+      <div class="chart-container">
+        <h3>📈 Gráfica de Movimientos</h3>
+        <img src="${imagenData}" class="chart-image" style="max-width: 100%;">
+      </div>
+      
+      <h3>📋 Datos por Semana</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Semana</th>
+            <th>Cantidad de Movimientos</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${semanas.map((semana, index) => `
+          <tr>
+            <td>${semana}</td>
+            <td>${cantidades[index] || 0}</td>
+          </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <p>SGAFAQ - Sistema de Gestión de Activos Fijos</p>
+        <p>Reporte generado automáticamente | ${new Date().toLocaleDateString()}</p>
+        <p>Datos correspondientes a los últimos 90 días, agrupados por semana</p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  // Abrir ventana para imprimir (generar PDF)
+  const ventana = window.open('', '_blank');
+  ventana.document.write(contenido);
+  ventana.document.close();
+  ventana.focus();
+  ventana.print();
+}
+
+// Función para exportar la gráfica de activos por usuario a PDF
+function exportarGraficaActivosUsuarioPDF() {
+  const canvas = document.getElementById('graficaActivosUsuario');
+  if (!canvas) {
+    showToast('No hay gráfica para exportar', 'error');
+    return;
+  }
+  
+  const imagenData = canvas.toDataURL('image/png');
+  
+  // Obtener datos de la gráfica
+  const titulo = document.querySelector('#graficaActivosUsuarioModal .m-title').innerText;
+  const subtitulo = document.querySelector('#graficaActivosUsuarioModal .m-sub').innerText;
+  const total = document.getElementById('totalActivosPeriodo').innerText;
+  const topUsuario = document.getElementById('topUsuarioNombre').innerText;
+  const topCantidad = document.getElementById('topUsuarioCantidad').innerText;
+  
+  // Obtener filtro seleccionado
+  const filtroSelect = document.getElementById('filtroUsuarioActivos');
+  const filtroSeleccionado = filtroSelect.options[filtroSelect.selectedIndex]?.text || 'Todos los usuarios';
+  
+  // Obtener datos de usuario seleccionado (si está visible)
+  const statsVisible = document.getElementById('statsUsuarioSeleccionado').style.display !== 'none';
+  let usuarioSeleccionado = '';
+  let usuarioTotal = '';
+  let usuarioSemana = '';
+  let usuarioCantidad = '';
+  
+  if (statsVisible) {
+    usuarioSeleccionado = document.getElementById('usuarioSeleccionadoNombre').innerText;
+    usuarioTotal = document.getElementById('usuarioTotalActivos').innerText;
+    usuarioSemana = document.getElementById('usuarioSemanaTop').innerText;
+    usuarioCantidad = document.getElementById('usuarioCantidadTop').innerText;
+  }
+  
+  // Obtener datos de la gráfica
+  let semanas = [];
+  let cantidades = [];
+  if (chartActivosUsuarioInstance && chartActivosUsuarioInstance.data) {
+    semanas = chartActivosUsuarioInstance.data.labels;
+    cantidades = chartActivosUsuarioInstance.data.datasets[0].data;
+  }
+  
+  // Crear contenido HTML para el PDF
+  const contenido = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Reporte de Activos por Usuario</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          font-size: 12px;
+        }
+        h1 {
+          color: #1565c0;
+          text-align: center;
+          margin-bottom: 5px;
+        }
+        .subtitle {
+          text-align: center;
+          color: #666;
+          margin-bottom: 20px;
+        }
+        .filter-info {
+          text-align: center;
+          font-size: 11px;
+          color: #888;
+          margin-bottom: 20px;
+        }
+        .stats-container {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f5f5f5;
+          border-radius: 8px;
+        }
+        .stat-box {
+          text-align: center;
+          flex: 1;
+        }
+        .stat-number {
+          font-size: 24px;
+          font-weight: bold;
+          color: #1565c0;
+        }
+        .stat-label {
+          font-size: 10px;
+          color: #666;
+        }
+        .usuario-stats {
+          margin-bottom: 20px;
+          padding: 15px;
+          background: rgba(21, 101, 192, 0.05);
+          border-radius: 8px;
+          border: 1px solid #1565c0;
+        }
+        .usuario-stats h3 {
+          margin: 0 0 10px 0;
+          color: #1565c0;
+        }
+        .usuario-stats-detail {
+          display: flex;
+          gap: 30px;
+          flex-wrap: wrap;
+        }
+        .chart-container {
+          text-align: center;
+          margin: 20px 0;
+        }
+        .chart-image {
+          max-width: 100%;
+          height: auto;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+          font-size: 10px;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: center;
+        }
+        th {
+          background-color: #f2f2f2;
+          font-weight: bold;
+        }
+        .footer {
+          margin-top: 30px;
+          text-align: center;
+          font-size: 10px;
+          color: #999;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>SGAFAQ - Sistema de Gestión de Activos Fijos</h1>
+      <div class="subtitle">${titulo}</div>
+      <div class="subtitle">${subtitulo}</div>
+      <div class="filter-info">Filtro aplicado: ${filtroSeleccionado}</div>
+      <div class="filter-info">Generado el: ${new Date().toLocaleString()}</div>
+      
+      <div class="stats-container">
+        <div class="stat-box">
+          <div class="stat-number">${total}</div>
+          <div class="stat-label">Total activos (90 días)</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${topUsuario}</div>
+          <div class="stat-label">Usuario más activo</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${topCantidad}</div>
+          <div class="stat-label">Activos registrados</div>
+        </div>
+      </div>
+      
+      ${statsVisible ? `
+      <div class="usuario-stats">
+        <h3>📊 Estadísticas del Usuario Seleccionado</h3>
+        <div class="usuario-stats-detail">
+          <div><strong>Usuario:</strong> ${usuarioSeleccionado}</div>
+          <div><strong>Total activos:</strong> ${usuarioTotal}</div>
+          <div><strong>Semana más activa:</strong> ${usuarioSemana}</div>
+          <div><strong>Activos esa semana:</strong> ${usuarioCantidad}</div>
+        </div>
+      </div>
+      ` : ''}
+      
+      <div class="chart-container">
+        <h3>📊 Activos Registrados por Semana</h3>
+        <img src="${imagenData}" class="chart-image" style="max-width: 100%;">
+      </div>
+      
+      <h3>📋 Datos por Semana</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Semana</th>
+            <th>Cantidad de Activos</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${semanas.map((semana, index) => `
+          <tr>
+            <td>${semana}</td>
+            <td>${cantidades[index] || 0}</td>
+          </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <p>SGAFAQ - Sistema de Gestión de Activos Fijos</p>
+        <p>Reporte generado automáticamente | ${new Date().toLocaleDateString()}</p>
+        <p>Datos correspondientes a los últimos 90 días, agrupados por semana</p>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  // Abrir ventana para imprimir (generar PDF)
+  const ventana = window.open('', '_blank');
+  ventana.document.write(contenido);
+  ventana.document.close();
+  ventana.focus();
+  ventana.print();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Gestión de Usuarios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label"><strong>SGAFAQ</strong>Activos Fijos · QR</div>
+    </div>
+
+    <div class="s-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+        style="cursor: pointer; transition: all 0.2s;" 
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'" 
+        onmouseout="this.style.backgroundColor=''">
+        <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+      </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// ADMIN</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_admin') }}'" style="cursor: pointer;">
+        <i class="bi bi-grid-1x2-fill nav-icon"></i> Dashboard
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos') }}'" style="cursor: pointer;">
+        <i class="bi bi-clock-history nav-icon"></i> Historial de movimientos
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('escanear_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-qr-code-scan nav-icon"></i> Escanear activo
+      </div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('crear_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-people-fill nav-icon"></i> Registrar usuario
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item active"><i class="bi bi-pencil-fill nav-icon"></i> Gestionar usuarios</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('inventario_general') }}'" style="cursor: pointer;">
+        <i class="bi bi-table nav-icon"></i> Inventario general
+      </div>
+    </nav>
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Gestión de Usuarios</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">sistema / <span>Gestión de Usuarios</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+            style="cursor: pointer; transition: all 0.2s;" 
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'" 
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av">{{ session.nombre_completo[:2]|upper }}</div>
+            <span>Admin</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// administración</div>
+          <div class="ph-title">Gestión de Usuarios</div>
+          <div class="ph-sub">Administra las cuentas de acceso al sistema institucional</div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="window.location.href='{{ url_for('crear_usuario') }}'">
+          <i class="bi bi-person-plus-fill"></i> Nuevo usuario
+        </button>
+      </div>
+
+      <!-- Mensajes Flash -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" style="display:flex; margin-bottom:20px;">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="alert alert-success">
+        <i class="bi bi-info-circle-fill"></i>
+        Solo el administrador puede crear, editar y eliminar usuarios. Los permisos de acceso se asignan por rol.
+      </div>
+
+      <!-- TABLA DE USUARIOS DINÁMICA -->
+      <div class="card" style="padding:0; overflow:hidden">
+        <div class="table-wrap" style="border:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre completo</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Puesto</th>
+                <th>Edad</th>
+                <th>Domicilio</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in usuarios %}
+              <tr>
+                <td>{{ u[2] }}</td>
+                <td><span style="font-family:var(--font-mono);">{{ u[1] }}</span></td>
+                <td>
+                  <span class="badge {% if u[3] == 'Administrador' %}b-g{% else %}b-blue{% endif %}">
+                    {{ u[3] }}
+                  </span>
+                </td>
+                <td>{{ u[4] or '—' }}</td>
+                <td>{{ u[5] or '—' }}</td>
+                <td>{{ u[6] or '—' }}</td>
+                <td>
+                  {% if u[1] != session['username'] %}
+                    <div style="display:flex; gap:6px; align-items:left; justify-content:left;">
+                      <button class="btn btn-ghost btn-sm" onclick="abrirModal(
+                        '{{ u[0] }}',
+                        '{{ u[1] }}',
+                        '{{ u[2] }}',
+                        '{{ u[3] }}',
+                        '{{ u[4] or '' }}',
+                        '{{ u[5] or '' }}',
+                        '{{ u[6] or '' }}',
+                        '{{ u[7] or '' }}'
+                      )">
+                        <i class="bi bi-pencil"></i>Editar
+                      </button>
+                      {% set cantidad_activos = u[8] if u[8] is defined else 0 %}
+                      <form method="POST" 
+                            action="{{ url_for('eliminar_usuario', id_usuario=u[0]) }}" 
+                            style="display:inline;" 
+                            id="deleteForm{{ u[0] }}"
+                            onsubmit="return confirmarEliminacion({{ cantidad_activos }}, '{{ u[0] }}', 'deleteForm{{ u[0] }}')">
+                          <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+                          <button type="submit" class="btn btn-danger-soft btn-sm" 
+                                title="{% if cantidad_activos > 0 %}Tiene {{ cantidad_activos }} activo(s) registrado(s){% else %}Eliminar usuario{% endif %}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                      </form>
+                    </div>
+                  {% else %}
+                    <div style="display:flex; gap:6px; align-items:left; justify-content:left;">
+                      <span class="badge b-g">Tu cuenta</span>
+                    </div>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Editar Usuario -->
+<div class="modal-overlay" id="modalEditar">
+  <div class="modal">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="cerrarModal()"><i class="bi bi-x"></i></button>
+    <div class="m-title">✏ Editar Usuario</div>
+    <div class="m-sub">Modifica los campos del usuario</div>
+
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('editar_usuario') }}">
+      <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+      <input type="hidden" name="id_usuario" id="id_usuario">
+
+      <div class="form-group">
+        <label class="form-label">Nombre completo *</label>
+        <input class="form-input" type="text" name="nombre" id="nombre">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Usuario *</label>
+        <input class="form-input" type="text" name="user" id="user">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Rol *</label>
+        <select class="form-input" name="rol" id="rol">
+          <option value="Administrador">Administrador</option>
+          <option value="Usuario">Usuario</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Puesto</label>
+        <input class="form-input" type="text" name="puesto" id="puesto">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Edad</label>
+        <input class="form-input" type="number" name="edad" id="edad">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Domicilio</label>
+        <input class="form-input" type="text" name="domicilio" id="domicilio">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Foto actual</label>
+        <img id="foto_actual" class="photo-preview" style="max-width:120px; display:block; margin-bottom:10px;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nueva foto</label>
+        <input class="form-input" type="file" name="foto" id="foto" accept="image/*">
+      </div>
+
+      <div class="m-actions">
+        <button type="button" class="btn btn-outline btn-sm" onclick="cerrarModal()">Cancelar</button>
+        <button type="submit" class="btn btn-green btn-sm">
+          <i class="bi bi-check-lg"></i> Actualizar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Confirmar eliminación -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal modal-sm">
+    <div class="modal-top-bar" style="background:var(--red)"></div>
+    <button class="m-close" onclick="closeModal('deleteModal')"><i class="bi bi-x"></i></button>
+    <div class="m-title">⚠️ Confirmar eliminación</div>
+    <div class="m-sub" id="deleteModalSub">¿Confirmas la eliminación de este usuario?</div>
+    
+    <div class="alert alert-warning" id="activosWarning" style="display:none; margin-bottom:15px;">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <strong>¡ATENCIÓN!</strong> Este usuario tiene <span id="cantidadActivosSpan">0</span> activo(s) registrado(s).
+      <br><br>
+      Al eliminar este usuario:
+      <ul style="margin-top:8px; margin-left:20px;">
+        <li>Los activos serán <strong>eliminados permanentemente</strong></li>
+        <li>El historial de movimientos <strong>también será eliminado</strong></li>
+        <li>Los detalles del historial <strong>serán eliminados</strong></li>
+        <li>Esta acción <strong>no se puede deshacer</strong></li>
+      </ul>
+    </div>
+        
+    <!-- Advertencia estándar (se muestra cuando NO tiene activos) -->
+    <div class="alert alert-error" id="standardWarning">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      Esta acción es permanente y no puede deshacerse.
+    </div>
+    
+    <div class="m-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('deleteModal')">Cancelar</button>
+      <button class="btn btn-danger-soft btn-sm" id="confirmDeleteBtn">
+        <i class="bi bi-trash"></i> Eliminar definitivamente
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+<script>
+// Función para abrir modal de edición
+function abrirModal(id, user, nombre, rol, puesto, edad, domicilio, foto) {
+    document.getElementById("id_usuario").value = id;
+    document.getElementById("user").value = user;
+    document.getElementById("nombre").value = nombre;
+    document.getElementById("rol").value = rol;
+    document.getElementById("puesto").value = puesto || '';
+    document.getElementById("edad").value = edad || '';
+    document.getElementById("domicilio").value = domicilio || '';
+
+    const fotoActual = document.getElementById("foto_actual");
+    if (foto) {
+        fotoActual.src = "{{ url_for('static', filename='img_personas/') }}" + foto;
+        fotoActual.style.display = 'block';
+    } else {
+        fotoActual.src = "";
+        fotoActual.style.display = 'none';
+    }
+
+    openModal('modalEditar');
+}
+
+// Función para cerrar modal
+function cerrarModal() {
+    closeModal('modalEditar');
+}
+
+// Vista previa de imagen al seleccionar archivo
+document.getElementById("foto")?.addEventListener("change", function() {
+    const file = this.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById("foto_actual").src = e.target.result;
+            document.getElementById("foto_actual").style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// Funciones para abrir/cerrar modal (usando las de alerts.js)
+function openModal(id) {
+    document.getElementById(id)?.classList.add('open');
+}
+
+function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+}
+
+// ========== ELIMINACIÓN DE USUARIOS ==========
+let formularioAEliminar = null;
+
+// Función para mostrar error con DIV (no toast)
+function mostrarErrorEliminacion(mensaje) {
+    // Buscar el contenedor de alertas (debajo de los mensajes flash)
+    const flashMessages = document.querySelector('.alert-success');
+    const pageHeader = document.querySelector('.page-header');
+    
+    // Crear contenedor si no existe
+    let alertContainer = document.querySelector('.alert-container');
+    if (!alertContainer) {
+        alertContainer = document.createElement('div');
+        alertContainer.className = 'alert-container';
+        alertContainer.style.marginBottom = '20px';
+        
+        // Insertar después de los mensajes flash o del header
+        if (flashMessages) {
+            flashMessages.parentNode.insertBefore(alertContainer, flashMessages.nextSibling);
+        } else if (pageHeader) {
+            pageHeader.parentNode.insertBefore(alertContainer, pageHeader.nextSibling);
+        }
+    }
+    
+    // Crear la alerta
+    const alerta = document.createElement('div');
+    alerta.className = 'alert alert-error';
+    alerta.style.display = 'flex';
+    alerta.style.marginBottom = '10px';
+    alerta.style.alignItems = 'center';
+    alerta.style.gap = '10px';
+    alerta.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i> ${mensaje}`;
+    
+    // Agregar al contenedor
+    alertContainer.appendChild(alerta);
+    
+    // Auto-eliminar después de 5 segundos
+    setTimeout(() => {
+        if (alerta.parentNode) {
+            alerta.remove();
+        }
+    }, 5000);
+}
+
+// Función principal para confirmar eliminación
+function confirmarEliminacion(cantidadActivos, userId, formId) {
+    console.log("Cantidad de activos recibida:", cantidadActivos, "Tipo:", typeof cantidadActivos);
+    
+    // Convertir a número
+    cantidadActivos = parseInt(String(cantidadActivos).replace(/'/g, '')) || 0;
+    
+    console.log("Cantidad procesada:", cantidadActivos);
+    
+    // Guardar referencia al formulario
+    formularioAEliminar = formId;
+    
+    // Configurar el modal según si tiene activos o no
+    const activosWarning = document.getElementById('activosWarning');
+    const standardWarning = document.getElementById('standardWarning');
+    const cantidadActivosSpan = document.getElementById('cantidadActivosSpan');
+    const modalSub = document.getElementById('deleteModalSub');
+    
+    if (cantidadActivos > 0) {
+        // Mostrar advertencia especial para usuarios con activos
+        activosWarning.style.display = 'block';
+        standardWarning.style.display = 'none';
+        cantidadActivosSpan.textContent = cantidadActivos;
+        modalSub.innerHTML = `¿Confirmas la eliminación de <strong>${userId}</strong>?<br><span style="color:var(--red);">Se eliminarán también sus activos registrados</span>`;
+    } else {
+        // Mostrar advertencia estándar
+        activosWarning.style.display = 'none';
+        standardWarning.style.display = 'flex';
+        modalSub.innerHTML = `¿Confirmas la eliminación de este usuario?`;
+    }
+    
+    // Abrir modal de confirmación
+    openModal('deleteModal');
+    return false; // Prevenir envío del formulario
+}
+
+// Configurar el botón de confirmación del modal (SOLO UNA VEZ)
+document.addEventListener('DOMContentLoaded', function() {
+    // Eliminar event listeners anteriores (para evitar duplicados)
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    if (confirmBtn) {
+        // Reemplazar con nuevo botón clonado para eliminar eventos anteriores
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        // Agregar nuevo event listener
+        newConfirmBtn.addEventListener('click', function() {
+            if (formularioAEliminar) {
+                document.getElementById(formularioAEliminar)?.submit();
+            }
+            closeModal('deleteModal');
+        });
+    }
+    
+    // Cerrar modal al hacer clic fuera
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+});
+</script>
+</body>
+</html>

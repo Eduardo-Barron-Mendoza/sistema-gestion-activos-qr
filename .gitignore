@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Variables de entorno
+.env
+.env.local
+
+# Base de datos Docker
+mysql_data/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos subidos (opcional, si quieres mantener las imágenes)
+# static/img_activos/*
+# static/img_personas/*
+# static/qr_activos/*
+
+# Mantener las carpetas vacías
+!static/img_activos/.gitkeep
+!static/img_personas/.gitkeep
+!static/qr_activos/.gitkeep".env" 
+"venv/" 
+"__pycache__/" 
+"*.pyc" 

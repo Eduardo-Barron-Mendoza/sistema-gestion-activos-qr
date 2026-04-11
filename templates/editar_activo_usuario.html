@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Activo</title>
+</head>
+<body>
+
+<h2>✏️ Editar Activo del usuario</h2>
+
+<form method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+
+    <label>Nombre:</label><br>
+    <input type="text" name="nombre" value="{{ activo[0] }}" required><br><br>
+
+    <label>Ubicación:</label><br>
+    <input type="text" name="ubicacion" value="{{ activo[1] }}"><br><br>
+
+    <label>Garantía:</label><br>
+    <input type="text" name="garantia" value="{{ activo[2] }}"><br><br>
+
+    <label>Foto actual:</label><br>
+    {% if activo[3] %}
+        <img id="preview"
+             src="{{ url_for('static', filename='img_activos/' ~ activo[3]) }}"
+             width="120">
+    {% else %}
+        <p>SIN FOTO</p>
+        <img id="preview" width="120">
+    {% endif %}
+    <br><br>
+
+    <label>Nueva foto:</label><br>
+    <input type="file" name="foto" id="foto"><br><br>
+
+    <label>Observaciones:</label><br>
+    <textarea name="observaciones" rows="4" cols="50">{{ activo[4] }}</textarea>
+
+    <input type="submit" value="Guardar cambios">
+</form>
+
+<br>
+<a href="{{ url_for('inventario_general_usuario') }}">⬅ Volver al inventario</a>
+
+<script>
+const inputFoto = document.getElementById('foto');
+const preview = document.getElementById('preview');
+
+inputFoto.addEventListener('change', () => {
+    const file = inputFoto.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = e => preview.src = e.target.result;
+        reader.readAsDataURL(file);
+    }
+});
+</script>
+
+</body>
+</html>

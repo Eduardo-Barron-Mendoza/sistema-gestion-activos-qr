@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Editar Perfil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label">
+        <strong>SGAFAQ</strong>
+        Activos Fijos · QR
+      </div>
+    </div>
+
+    <div class="s-user active"
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'"
+        onmouseout="this.style.backgroundColor=''">
+        <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+        </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// User</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-grid-1x2-fill nav-icon"></i>Dashboard
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-clock-history nav-icon"></i> Historial de movimientos
+      </div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('inventario_general_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-table nav-icon"></i> Inventario general
+      </div>
+    </nav>
+
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Mi Perfil</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">sistema / <span>Editar perfil</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user"
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'"
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av" style="overflow: hidden; width: 26px; height: 26px; border-radius: 5px;">
+                {{ session.nombre_completo[:2]|upper }}
+            </div>
+            <span>User</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'error' if category == 'error' or category == 'danger' else 'info' }}" style="display:flex; margin-bottom:16px;">
+              <i class="bi bi-{{ 'check-circle-fill' if category == 'success' else 'exclamation-circle-fill' }}"></i>
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- PAGE HEADER -->
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// cuenta de usuario</div>
+          <div class="ph-title">Editar Perfil</div>
+          <div class="ph-sub">Actualiza tu información personal y credenciales de acceso</div>
+        </div>
+      </div>
+
+      <!-- PROFILE FORM -->
+      <form method="POST" enctype="multipart/form-data" id="perfilForm" onsubmit="return validarPerfil()">
+        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+
+        <div style="display:grid; grid-template-columns: 300px 1fr; gap:18px; align-items:start;">
+
+          <!-- LEFT: AVATAR CARD -->
+          <div class="card" style="text-align:center; padding:28px 20px;">
+            <div style="position:relative; display:inline-block; margin-bottom:16px;">
+              <div style="width:110px; height:110px; border-radius:50%; overflow:hidden; border:3px solid var(--g-border); margin:0 auto; box-shadow:0 4px 20px rgba(0,201,122,0.15); background:var(--smoke-2);">
+                <img id="fotoPreview"
+                     src="{{ url_for('static', filename='img_personas/' ~ usuario[6]) if usuario[6] else '' }}"
+                     onerror="this.style.display='none'; document.getElementById('fotoPlaceholder').style.display='flex';"
+                     onload="this.style.display='block'; document.getElementById('fotoPlaceholder').style.display='none';"
+                     alt="Foto de perfil"
+                     style="width:100%; height:100%; object-fit:cover; {{ 'display:block' if usuario[6] else 'display:none' }}">
+                <div id="fotoPlaceholder" style="width:100%; height:100%; display:{{ 'none' if usuario[6] else 'flex' }}; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--g) 0%,var(--g-dark) 100%); font-size:36px; font-weight:700; color:var(--ink);">
+                  {{ usuario[1][:2]|upper if usuario[1] else 'U' }}
+                </div>
+              </div>
+              <label for="fotoInput" style="position:absolute; bottom:0; right:0; width:28px; height:28px; background:var(--g); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,201,122,0.4); transform:translate(4px, 4px);">
+                <i class="bi bi-camera-fill" style="font-size:13px; color:var(--ink);"></i>
+              </label>
+              <input type="file" name="foto" id="fotoInput" accept="image/*" style="display:none;">
+            </div>
+
+            <div style="font-size:18px; font-weight:700; color:var(--ink); letter-spacing:-0.4px; margin-bottom:2px;">{{ usuario[1] }}</div>
+            <div style="font-size:12px; color:rgba(8,13,11,0.45); margin-bottom:6px;">@{{ usuario[0] }}</div>
+            <span class="badge {{ 'b-blue' if usuario[2] and usuario[2].lower() == 'administrador' else 'b-teal' }}">
+              <i class="bi bi-{{ 'shield-fill' if usuario[2] and usuario[2].lower() == 'administrador' else 'person-fill' }}"></i>
+              {{ usuario[2] }}
+            </span>
+
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--smoke-3); text-align:left;">
+              <div style="font-family:var(--font-mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--g-dark); font-weight:700; margin-bottom:10px;">// datos rápidos</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:rgba(8,13,11,0.6);">
+                  <i class="bi bi-briefcase-fill" style="color:var(--g-dark); width:14px;"></i>
+                  <span>{{ usuario[3] or 'Sin puesto' }}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:rgba(8,13,11,0.6);">
+                  <i class="bi bi-person-fill" style="color:var(--g-dark); width:14px;"></i>
+                  <span>{{ usuario[4] or '—' }} años</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:rgba(8,13,11,0.6);">
+                  <i class="bi bi-geo-alt-fill" style="color:var(--g-dark); width:14px;"></i>
+                  <span style="word-break:break-word;">{{ usuario[5] or 'Sin domicilio' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:16px; font-size:11px; color:rgba(8,13,11,0.35);">
+              Click en la cámara para cambiar foto<br>Formatos aceptados: JPG, PNG, WEBP
+            </div>
+          </div>
+
+          <!-- RIGHT: FORM CARDS -->
+          <div style="display:flex; flex-direction:column; gap:14px;">
+
+            <!-- Información Personal -->
+            <div class="card">
+              <div class="card-header" style="margin-bottom:14px;">
+                <div>
+                  <div class="card-title"><i class="bi bi-person-lines-fill" style="color:var(--g-dark); margin-right:6px;"></i>Información Personal</div>
+                  <div class="card-sub">Tus datos personales visibles en el sistema</div>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Nombre Completo *</label>
+                  <input class="form-input" type="text" name="nombre" id="inputNombre"
+                         value="{{ usuario[1] }}" placeholder="Juan Pérez" required>
+                  <div class="form-error" id="errNombre" style="display:none;"></div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Puesto / Cargo</label>
+                  <input class="form-input" type="text" name="puesto"
+                         value="{{ usuario[3] or '' }}" placeholder="Ej. Técnico de soporte">
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Edad</label>
+                  <input class="form-input" type="number" name="edad" min="18" max="100"
+                         value="{{ usuario[4] or '' }}" placeholder="25">
+                </div>
+
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Rol</label>
+                  <input class="form-input" type="text" value="{{ usuario[2] or '' }}" disabled
+                         style="background:var(--smoke); color:rgba(8,13,11,0.45); cursor:not-allowed;">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top:14px; margin-bottom:0;">
+                <label class="form-label">Domicilio</label>
+                <input class="form-input" type="text" name="domicilio"
+                       value="{{ usuario[5] or '' }}" placeholder="Calle, colonia, ciudad...">
+              </div>
+            </div>
+
+            <!-- Credenciales -->
+            <div class="card">
+              <div class="card-header" style="margin-bottom:14px;">
+                <div>
+                  <div class="card-title"><i class="bi bi-key-fill" style="color:var(--g-dark); margin-right:6px;"></i>Credenciales de Acceso</div>
+                  <div class="card-sub">Nombre de usuario y contraseña</div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label">Usuario (login) *</label>
+                <div style="position:relative;">
+                  <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:rgba(8,13,11,0.35); font-size:14px;">@</span>
+                  <input class="form-input" type="text" name="user" id="inputUser"
+                         value="{{ usuario[0] }}" placeholder="nombre_usuario" required
+                         style="padding-left:28px;">
+                </div>
+                <div class="form-error" id="errUser" style="display:none;"></div>
+                <div class="form-hint">Este nombre se usa para iniciar sesión. Evita espacios y caracteres especiales.</div>
+              </div>
+
+              <!-- NUEVA SECCIÓN: Cambiar contraseña -->
+              <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--smoke-3);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                  <i class="bi bi-shield-lock-fill" style="color:var(--g-dark);"></i>
+                  <span style="font-weight:600; font-size:14px;">Cambiar contraseña</span>
+                  <span style="font-size:11px; color:rgba(8,13,11,0.45);">(dejar vacío para mantener la actual)</span>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <!-- NUEVA CONTRASEÑA -->
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Nueva contraseña</label>
+                    <div style="position:relative;">
+                      <input class="form-input" type="password" name="password" id="inputPass" placeholder="Mín. 8 caracteres" style="padding-right:38px;">
+                      <button type="button" onclick="togglePass('inputPass','eyePass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(8,13,11,0.4);font-size:15px;">
+                        <i class="bi bi-eye" id="eyePass"></i>
+                      </button>
+                    </div>
+                    <div class="form-error" id="errPass" style="display:none;"></div>
+                    <div class="form-hint">Mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula y 1 número</div>
+                  </div>
+                  
+                  <!-- CONFIRMAR CONTRASEÑA -->
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Confirmar contraseña</label>
+                    <div style="position:relative;">
+                      <input class="form-input" type="password" name="password2" id="inputPass2" placeholder="Repetir contraseña" style="padding-right:38px;">
+                      <button type="button" onclick="togglePass('inputPass2','eyePass2')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(8,13,11,0.4);font-size:15px;">
+                        <i class="bi bi-eye" id="eyePass2"></i>
+                      </button>
+                    </div>
+                    <div class="form-error" id="errPass2" style="display:none;"></div>
+                  </div>
+                </div>
+
+                <!-- Barra de fortaleza de contraseña (opcional) -->
+                <div style="margin-top:12px; max-width:300px;">
+                  <div style="height:4px; background:var(--smoke-3); border-radius:4px; overflow:hidden;">
+                    <div id="passBar" style="height:100%; width:0%; background:var(--red); border-radius:4px; transition:width .3s,background .3s;"></div>
+                  </div>
+                  <div id="passLabel" style="font-size:11px; color:rgba(8,13,11,0.4); margin-top:4px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+              <a href="{{ url_for('dashboard_admin' if session.rol and session.rol.lower() == 'administrador' else 'dashboard_usuario') }}"
+                 class="btn btn-outline">
+                <i class="bi bi-x-lg"></i> Cancelar
+              </a>
+              <button type="submit" class="btn btn-green" id="btnGuardar">
+                <i class="bi bi-check2-circle"></i> Guardar Cambios
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </form>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+<script>
+// Preview de foto
+document.getElementById('fotoInput').addEventListener('change', function() {
+  const archivo = this.files[0];
+  if (archivo) {
+    // Validar tamaño (5MB)
+    if (archivo.size > 5 * 1024 * 1024) {
+      showToast('La imagen supera los 5 MB', 'error');
+      this.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('fotoPreview');
+      const placeholder = document.getElementById('fotoPlaceholder');
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(archivo);
+  }
+});
+
+// Mostrar/ocultar contraseña
+function togglePass(inputId, iconId) {
+  const inp = document.getElementById(inputId);
+  const ico = document.getElementById(iconId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  ico.className = inp.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+
+// Medidor de fortaleza de contraseña
+document.getElementById('inputPass').addEventListener('input', function() {
+  const v = this.value;
+  let s = 0;
+  if (v.length >= 6) s++;
+  if (v.length >= 10) s++;
+  if (/[A-Z]/.test(v)) s++;
+  if (/[a-z]/.test(v)) s++; 
+  if (/[0-9]/.test(v)) s++;
+  if (/[^A-Za-z0-9]/.test(v)) s++;
+  
+  const niveles = [
+    ['', 'var(--smoke-3)', '0%'],
+    ['Muy débil', 'var(--red)', '20%'],
+    ['Débil', '#e67e22', '40%'],
+    ['Regular', 'var(--amber)', '60%'],
+    ['Fuerte', '#27ae60', '80%'],
+    ['Muy fuerte', 'var(--g)', '100%']
+  ];
+  
+  const idx = v.length === 0 ? 0 : Math.min(s + 1, 5);
+  
+  document.getElementById('passBar').style.width = niveles[idx][2];
+  document.getElementById('passBar').style.background = niveles[idx][1];
+  document.getElementById('passLabel').textContent = niveles[idx][0];
+  document.getElementById('passLabel').style.color = niveles[idx][1];
+});
+
+// Validación del formulario
+function validarPerfil() {
+  let valido = true;
+
+  const nombre = document.getElementById('inputNombre');
+  const errNombre = document.getElementById('errNombre');
+  if (!nombre.value.trim()) {
+    nombre.classList.add('error');
+    errNombre.textContent = 'El nombre completo es requerido';
+    errNombre.style.display = 'block';
+    valido = false;
+  } else if (nombre.value.length > 100) {
+    nombre.classList.add('error');
+    errNombre.textContent = 'El nombre no puede exceder 100 caracteres';
+    errNombre.style.display = 'block';
+    valido = false;
+  } else {
+    nombre.classList.remove('error');
+    errNombre.style.display = 'none';
+  }
+
+  const user = document.getElementById('inputUser');
+  const errUser = document.getElementById('errUser');
+  if (!user.value.trim()) {
+    user.classList.add('error');
+    errUser.textContent = 'El nombre de usuario es requerido';
+    errUser.style.display = 'block';
+    valido = false;
+  } else if (/\s/.test(user.value)) {
+    user.classList.add('error');
+    errUser.textContent = 'El usuario no puede contener espacios';
+    errUser.style.display = 'block';
+    valido = false;
+  } else {
+    user.classList.remove('error');
+    errUser.style.display = 'none';
+  }
+
+  // Validar edad si está presente
+  const edad = document.querySelector('input[name="edad"]');
+  if (edad.value && (edad.value < 18 || edad.value > 100)) {
+    edad.classList.add('error');
+    const errEdad = document.createElement('div');
+    errEdad.className = 'form-error';
+    errEdad.textContent = 'La edad debe estar entre 18 y 100 años';
+    errEdad.style.display = 'block';
+    if (!edad.parentNode.querySelector('.form-error')) {
+      edad.parentNode.appendChild(errEdad);
+    }
+    valido = false;
+  }
+
+  // Validar contraseñas si se ingresaron
+  const pass = document.getElementById('inputPass');
+  const pass2 = document.getElementById('inputPass2');
+  const errPass = document.getElementById('errPass');
+  const errPass2 = document.getElementById('errPass2');
+
+  if (pass.value || pass2.value) {
+    // Si se ingresó alguna contraseña, validar ambas
+    if (!pass.value) {
+      pass.classList.add('error');
+      errPass.textContent = 'Debes ingresar la nueva contraseña';
+      errPass.style.display = 'block';
+      valido = false;
+    } else if (pass.value.length < 8) {
+      pass.classList.add('error');
+      errPass.textContent = 'La contraseña debe tener al menos 8 caracteres';
+      errPass.style.display = 'block';
+      valido = false;
+    } else if (!/[A-Z]/.test(pass.value) || !/[a-z]/.test(pass.value) || !/[0-9]/.test(pass.value)) {
+      pass.classList.add('error');
+      errPass.textContent = 'La contraseña debe tener mayúscula, minúscula y número';
+      errPass.style.display = 'block';
+      valido = false;
+    } else {
+      pass.classList.remove('error');
+      errPass.style.display = 'none';
+    }
+
+    if (!pass2.value) {
+      pass2.classList.add('error');
+      errPass2.textContent = 'Debes confirmar la contraseña';
+      errPass2.style.display = 'block';
+      valido = false;
+    } else if (pass.value !== pass2.value) {
+      pass2.classList.add('error');
+      errPass2.textContent = 'Las contraseñas no coinciden';
+      errPass2.style.display = 'block';
+      valido = false;
+    } else {
+      pass2.classList.remove('error');
+      errPass2.style.display = 'none';
+    }
+  } else {
+    // No se ingresó contraseña, limpiar errores
+    pass.classList.remove('error');
+    pass2.classList.remove('error');
+    errPass.style.display = 'none';
+    errPass2.style.display = 'none';
+  }
+
+  if (valido) {
+    const btn = document.getElementById('btnGuardar');
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando...';
+    btn.disabled = true;
+  }
+
+  return valido;
+}
+
+// Limpiar errores en tiempo real
+document.getElementById('inputNombre').addEventListener('input', function() {
+  if (this.value.trim()) {
+    this.classList.remove('error');
+    document.getElementById('errNombre').style.display = 'none';
+  }
+});
+document.getElementById('inputUser').addEventListener('input', function() {
+  if (this.value.trim() && !/\s/.test(this.value)) {
+    this.classList.remove('error');
+    document.getElementById('errUser').style.display = 'none';
+  }
+});
+
+// Limpiar errores de contraseña
+document.getElementById('inputPass').addEventListener('input', function() {
+  document.getElementById('errPass').style.display = 'none';
+  this.classList.remove('error');
+});
+document.getElementById('inputPass2').addEventListener('input', function() {
+  document.getElementById('errPass2').style.display = 'none';
+  this.classList.remove('error');
+});
+
+// Mobile sidebar toggle - VERSIÓN CORREGIDA
+const menuBtn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+
+if (menuBtn && sidebar && overlay) {
+  menuBtn.addEventListener('click', () => {
+    sidebar.classList.add('open');      // ← Usar add, no toggle
+    overlay.classList.add('show');       // ← Usar add, no toggle
+    document.body.style.overflow = 'hidden';
+  });
+  
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');    // ← Usar remove
+    overlay.classList.remove('show');     // ← Usar remove
+    document.body.style.overflow = '';
+  });
+}
+
+// Cerrar sidebar al redimensionar a desktop
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+});
+</script>
+</body>
+</html>

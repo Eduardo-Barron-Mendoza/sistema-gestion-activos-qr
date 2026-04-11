@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Activo</title>
+    <style>
+        img {
+            border: 1px solid #ccc;
+            padding: 5px;
+            margin: 10px 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background: #eee;
+        }
+    </style>
+</head>
+<body>
+    <!-- 🔐 Barra superior -->
+    <div style="background:#f5f5f5;padding:10px;text-align:right;">
+
+        {% if session.get('user') %}
+            👤 {{ session.get('user') }} |
+            <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">🔐 Iniciar sesión</a>
+        {% endif %}
+
+    </div>
+<h2>📦 Información del Activo</h2>
+
+<p><b>Nombre:</b> {{ activo[0] }}</p>
+<p><b>Ubicación:</b> {{ activo[1] }}</p>
+<p><b>Garantía:</b> {{ activo[2] }}</p>
+<p><b>Fecha entrada:</b> {{ activo[3] }}</p>
+<p><b>Hora entrada:</b> {{ activo[4] }}</p>
+<p><b>Observaciones:</b> {{ activo[7] }}</p>
+
+<h3>🖼️ Foto del Activo</h3>
+{% if activo[5] %}
+    <img src="{{ url_for('static', filename='img_activos/' + activo[5]) }}" width="300">
+{% else %}
+    <p>No hay foto registrada</p>
+{% endif %}
+
+<h3>📱 Código QR</h3>
+<img src="/{{ activo[6] }}" width="220"><br>
+
+                {% if activo[6] %}
+                    <a href="/{{ activo[6] }}" download>
+                        📥 Descargar QR
+                    </a> <br>
+
+                    <button onclick="imprimirQR('/{{ activo[6] }}')">
+                        🖨️ Imprimir QR
+                    </button>
+                {% else %}
+                    SIN QR
+                {% endif %}
+
+<!-- 🔥 HISTORIAL DEL ACTIVO -->
+<h3>📜 Historial de este Activo</h3>
+
+{% if historial %}
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Usuario</th>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Movimiento</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for h in historial %}
+        <tr>
+            <td>{{ h[0] }}</td>
+            <td>{{ h[1] }}</td>
+            <td>{{ h[2] }}</td>
+            <td>{{ h[3] }}</td>
+            <td>{{ h[4] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No hay movimientos registrados para este activo.</p>
+{% endif %}
+
+<br><br>
+
+{% if session.get('rol') and session.get('rol')|lower == 'administrador' %}
+    <a href="{{ url_for('inventario_general') }}">⬅ Volver al inventario</a>
+{% endif %}
+
+<script>
+function imprimirQR(url) {
+    const ventana = window.open('', '_blank');
+    ventana.document.write(`
+        <html>
+            <head>
+                <title>Imprimir QR</title>
+            </head>
+            <body style="text-align:center;">
+                <h3>Código QR</h3>
+                <img src="${url}" style="width:200px;">
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        window.close();
+                    }
+                <\/script>
+            </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+</script>
+
+</body>
+</html>

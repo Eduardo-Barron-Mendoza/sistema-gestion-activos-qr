@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Historial de Movimientos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label"><strong>SGAFAQ</strong>Activos Fijos · QR</div>
+    </div>
+
+    <div class="s-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+        style="cursor: pointer; transition: all 0.2s;" 
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'" 
+        onmouseout="this.style.backgroundColor=''">
+        <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+      </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// ADMIN</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_admin') }}'" style="cursor: pointer;">
+        <i class="bi bi-grid-1x2-fill nav-icon"></i> Dashboard
+      </div>
+      <div class="nav-item active"><i class="bi bi-clock-history nav-icon"></i>Historial de movimientos</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('escanear_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-qr-code-scan nav-icon"></i> Escanear activo
+      </div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('crear_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-people-fill nav-icon"></i> Registrar usuario
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('editar_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-pencil-fill nav-icon"></i> Gestionar usuarios
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('inventario_general') }}'" style="cursor: pointer;">
+        <i class="bi bi-table nav-icon"></i> Inventario general
+      </div>
+    </nav>
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Historial de Movimientos</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">sistema / <span>Historial de Movimientos</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+            style="cursor: pointer; transition: all 0.2s;" 
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'" 
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av">{{ session.nombre_completo[:2]|upper }}</div>
+            <span>Admin</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// auditoría</div>
+          <div class="ph-title">Historial de Movimientos</div>
+          <div class="ph-sub">Trazabilidad completa de cada activo: ubicaciones, estados y responsables</div>
+        </div>
+      </div>
+
+      <!-- Mensajes Flash -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" style="display:flex; margin-bottom:20px;">
+              <i class="bi bi-exclamation-circle-fill"></i>
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="alert alert-success">
+        <i class="bi bi-info-circle-fill"></i>
+        Se registra automáticamente la ubicación anterior, la nueva ubicación, el editor y la fecha de cada cambio.
+      </div>
+
+      <!-- FILTER BAR (funcional) -->
+      <div class="filter-bar">
+        <input class="form-input" id="filterActivo" placeholder="Buscar activo..." style="max-width:180px">
+        <div class="f-div"></div>
+        <select class="form-input" id="filterEdificio" style="max-width:145px">
+          <option value="">Todos los edificios</option>
+          {% for edificio in edificios %}
+            <option value="{{ edificio[1] }}">{{ edificio[1] }}</option>
+          {% endfor %}
+        </select>
+        <select class="form-input" id="filterUsuario" style="max-width:190px">
+          <option value="">Todos los usuarios</option>
+          {% for usuario in usuarios %}
+            <option value="{{ usuario[1] }}">{{ usuario[2] }}</option>
+          {% endfor %}
+        </select>
+        <div class="f-div"></div>
+        <input class="form-input" type="date" id="filterFechaInicio" style="max-width:140px" placeholder="Desde">
+        <input class="form-input" type="date" id="filterFechaFin" style="max-width:140px" placeholder="Hasta">
+        <button class="btn btn-ghost btn-sm" onclick="limpiarFiltros()">
+          <i class="bi bi-x-lg"></i> Limpiar
+        </button>
+      </div>
+
+      <!-- TABLA DE HISTORIAL DINÁMICA -->
+      <div class="card" style="padding:0; overflow:hidden">
+        <div class="table-wrap" style="border:none">
+          <table id="tablaHistorial">
+            <thead>
+              <tr>
+                <th>Folio</th>
+                <th>Usuario</th>
+                <th>Activo</th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Cambios</th>
+                <th>Detalles</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in historial %}
+              <tr>
+                <td><span style="font-family:var(--font-mono); font-size:10px; color:rgba(8,13,11,0.35); font-weight:700">{{ h[0] }}</span></td>
+                <td><span class="badge b-blue">{{ h[1] }}</span></td>
+                <td style="font-weight:500">{{ h[2] }}</td>
+                <td><span class="badge b-ink">{{ h[3] }}</span></td>
+                <td><span class="badge b-ink">{{ h[4] }}</span></td>
+                <td>{{ h[5] }}</td>
+                <td>
+                    <button class="btn btn-outline btn-xs" onclick="verDetalleHistorial('{{ h[0] }}', '{{ h[2] }}')" title="Ver detalles">
+                        <i class="bi bi-eye"></i> Ver Detalles
+                    </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Detalle del Historial (UNIFICADO) -->
+<div class="modal-overlay" id="detalleHistorialModal">
+  <div class="modal modal-wide">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="cerrarModalDetalle()"><i class="bi bi-x"></i></button>
+    <div class="m-title">🔎 Detalle del Movimiento</div>
+    <div class="m-sub" id="detalleHistorialSub">Cargando detalles...</div>
+    
+    <div id="detalleHistorialContenido" style="margin-bottom:20px; max-height:400px; overflow-y:auto;">
+      <!-- Los detalles se cargarán aquí vía JavaScript -->
+      <div style="text-align:center; padding:30px;">
+        <i class="bi bi-arrow-repeat" style="font-size:24px; animation: spin 1s linear infinite;"></i>
+        <p style="margin-top:10px;">Cargando detalles...</p>
+      </div>
+    </div>
+    
+    <div class="m-actions">
+      <button class="btn btn-outline btn-sm" onclick="cerrarModalDetalle()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+<script>
+let historialAEliminar = null;
+
+// Función para abrir/cerrar modal (usando alerts.js)
+function openModal(id) {
+    document.getElementById(id)?.classList.add('open');
+}
+
+function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+}
+
+// Funciones para el menú hamburguesa
+function openSidebar() {
+    document.getElementById('sidebar')?.classList.add('open');
+    document.getElementById('sidebarOverlay')?.classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('sidebarOverlay')?.classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+// Función para limpiar filtros
+function limpiarFiltros() {
+    document.getElementById('filterActivo').value = '';
+    document.getElementById('filterEdificio').value = '';
+    document.getElementById('filterUsuario').value = '';
+    document.getElementById('filterFechaInicio').value = '';
+    document.getElementById('filterFechaFin').value = '';
+    filtrarTabla();
+}
+
+// Función para filtrar la tabla
+function filtrarTabla() {
+    const filtroActivo = document.getElementById('filterActivo').value.toLowerCase();
+    const filtroEdificio = document.getElementById('filterEdificio').value;
+    const filtroUsuario = document.getElementById('filterUsuario').value.toLowerCase();
+    const filtroFechaInicio = document.getElementById('filterFechaInicio').value;
+    const filtroFechaFin = document.getElementById('filterFechaFin').value;
+    
+    const filas = document.querySelectorAll('#tablaHistorial tbody tr');
+    
+    filas.forEach(fila => {
+        const activo = fila.cells[2]?.innerText.toLowerCase() || '';
+        const usuario = fila.cells[1]?.innerText.toLowerCase() || '';
+        const fecha = fila.cells[3]?.innerText || '';
+        
+        let coincide = true;
+        
+        if (filtroActivo) coincide = coincide && activo.includes(filtroActivo);
+        if (filtroUsuario) coincide = coincide && usuario.includes(filtroUsuario);
+        
+        // Filtro por fecha (si están definidas)
+        if (filtroFechaInicio && fecha) coincide = coincide && fecha >= filtroFechaInicio;
+        if (filtroFechaFin && fecha) coincide = coincide && fecha <= filtroFechaFin;
+        
+        fila.style.display = coincide ? '' : 'none';
+    });
+}
+
+// Función para cargar detalles (si usas AJAX)
+function cargarDetalleHistorial(idHistorial) {
+    fetch(`/api/detalle_historial/${idHistorial}`)
+        .then(response => response.json())
+        .then(data => {
+            let html = '<div class="info-grid">';
+            data.forEach(detalle => {
+                html += `
+                    <span class="i-label">${detalle.campo}</span>
+                    <span class="i-val">
+                        <span style="color:var(--red); text-decoration:line-through;">${detalle.anterior || '—'}</span> 
+                        → 
+                        <span style="color:var(--g);">${detalle.actual || '—'}</span>
+                    </span>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('detalleContenido').innerHTML = html;
+            document.getElementById('detalleModalSub').innerHTML = `Detalles del historial #${idHistorial}`;
+            openModal('detalleModal');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error al cargar detalles', 'error');
+        });
+}
+
+// Inicializar eventos
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar menú hamburguesa
+    const menuBtn = document.getElementById('menuBtn');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (menuBtn) {
+        menuBtn.addEventListener('click', openSidebar);
+    }
+    
+    if (overlay) {
+        overlay.addEventListener('click', closeSidebar);
+    }
+    
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            closeSidebar();
+        }
+    });
+    
+    // Agregar eventos a los filtros
+    document.getElementById('filterActivo')?.addEventListener('input', filtrarTabla);
+    document.getElementById('filterEdificio')?.addEventListener('change', filtrarTabla);
+    document.getElementById('filterUsuario')?.addEventListener('input', filtrarTabla);
+    document.getElementById('filterFechaInicio')?.addEventListener('change', filtrarTabla);
+    document.getElementById('filterFechaFin')?.addEventListener('change', filtrarTabla);
+    
+    // Cerrar modales al hacer clic fuera
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('open');
+            }
+        });
+    });
+});
+
+// Agregar estilos adicionales
+const style = document.createElement('style');
+style.textContent = `
+    .filter-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .f-div {
+        width: 1px;
+        height: 24px;
+        background: var(--smoke-3);
+    }
+    .btn-xs {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px 20px;
+        align-items: start;
+    }
+    .i-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(8,13,11,0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding-top: 2px;
+    }
+    .i-val {
+        font-size: 13px;
+        color: var(--ink);
+    }
+`;
+document.head.appendChild(style);
+
+// Función para ver detalle del historial en modal
+function verDetalleHistorial(idHistorial, nombreActivo) {
+    const modalSub = document.getElementById('detalleHistorialSub');
+    modalSub.innerHTML = `Detalles del movimiento - <strong>${nombreActivo || 'Activo'}</strong>`;
+    
+    const contenido = document.getElementById('detalleHistorialContenido');
+    contenido.innerHTML = `
+        <div style="text-align:center; padding:30px;">
+            <i class="bi bi-arrow-repeat" style="font-size:24px; animation: spin 1s linear infinite;"></i>
+            <p style="margin-top:10px;">Cargando detalles...</p>
+        </div>
+    `;
+    
+    openModal('detalleHistorialModal');
+    
+    // Llamar a la API para obtener detalles
+    fetch(`/api/detalle_historial/${idHistorial}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarDetallesHistorial(data);
+            } else {
+                contenido.innerHTML = `
+                    <div class="alert alert-error" style="margin:20px;">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        Error al cargar los detalles: ${data.message || 'Error desconocido'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            contenido.innerHTML = `
+                <div class="alert alert-error" style="margin:20px;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    Error de conexión al cargar los detalles
+                </div>
+            `;
+        });
+}
+
+// Función para mostrar los detalles en el modal
+function mostrarDetallesHistorial(data) {
+    const contenido = document.getElementById('detalleHistorialContenido');
+    
+    if (!data.detalles || data.detalles.length === 0) {
+        contenido.innerHTML = `
+            <div class="alert alert-info" style="margin:20px;">
+                <i class="bi bi-info-circle-fill"></i>
+                No hay detalles disponibles para este movimiento.
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="info-grid" style="margin-bottom:16px; padding:0 10px;">
+            <span class="i-label">Folio</span>
+            <span class="i-val">${data.id_historial}</span>
+            <span class="i-label">Fecha</span>
+            <span class="i-val">${data.fecha || '—'}</span>
+            <span class="i-label">Hora</span>
+            <span class="i-val">${data.hora || '—'}</span>
+            <span class="i-label">Usuario</span>
+            <span class="i-val">${data.usuario || '—'}</span>
+        </div>
+        <div style="border-top:1px solid var(--smoke-3); margin:10px 0;"></div>
+    `;
+    
+    html += `
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="background:var(--smoke);">
+                    <th style="padding:10px; text-align:left;">Campo Modificado</th>
+                    <th style="padding:10px; text-align:left;">Valor Anterior</th>
+                    <th style="padding:10px; text-align:left;">Valor Actual</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    data.detalles.forEach(d => {
+        html += `
+            <tr>
+                <td style="padding:8px 10px; border-bottom:1px solid var(--smoke-3);">
+                    <span class="badge b-blue">${d.campo}</span>
+                </td>
+                <td style="padding:8px 10px; border-bottom:1px solid var(--smoke-3); color:var(--red);">
+                    ${d.anterior || '<em style="color:var(--text-secondary);">— vacío —</em>'}
+                </td>
+                <td style="padding:8px 10px; border-bottom:1px solid var(--smoke-3); color:var(--g-dark); font-weight:500;">
+                    ${d.actual || '<em style="color:var(--text-secondary);">— vacío —</em>'}
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+            </tbody>
+        </table>
+    `;
+    
+    contenido.innerHTML = html;
+}
+
+// Función para cerrar modal de detalle
+function cerrarModalDetalle() {
+    closeModal('detalleHistorialModal');
+    // Limpiar contenido para evitar flash de contenido anterior
+    setTimeout(() => {
+        document.getElementById('detalleHistorialContenido').innerHTML = '';
+    }, 300);
+}
+</script>
+</body>
+</html>

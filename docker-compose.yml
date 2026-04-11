@@ -1,0 +1,48 @@
+services:
+  flask_app:
+    build: .
+    container_name: sistema_gestion_flask
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./static/img_activos:/app/static/img_activos
+      - ./static/img_personas:/app/static/img_personas
+      - ./static/qr_activos:/app/static/qr_activos
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sistema_network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: sistema_gestion_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sistema_network
+
+volumes:
+  postgres_data:
+
+networks:
+  sistema_network:
+    driver: bridge

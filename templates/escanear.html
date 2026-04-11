@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Escanear Activo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+<style>
+/* Estilos para el autocompletado */
+.autocomplete-container {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    background: var(--white);
+    border: 1px solid var(--smoke-3);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+    display: none;
+    margin-top: 2px;
+}
+
+.autocomplete-results.show {
+    display: block;
+}
+
+.autocomplete-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--smoke-3);
+    transition: background 0.2s;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover {
+    background: var(--smoke-2);
+}
+
+.autocomplete-item.active {
+    background: var(--g-dim);
+}
+
+.autocomplete-icon {
+    width: 30px;
+    height: 30px;
+    background: rgba(0,201,122,0.08);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--g-dark);
+    flex-shrink: 0;
+}
+
+.autocomplete-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.autocomplete-name {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.autocomplete-details {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 10px;
+    margin-top: 2px;
+}
+
+.autocomplete-highlight {
+    background: rgba(0,201,122,0.15);
+    font-weight: 600;
+    padding: 0 2px;
+}
+</style>
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label"><strong>SGAFAQ</strong>Activos Fijos · QR</div>
+    </div>
+
+    <div class="s-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+        style="cursor: pointer; transition: all 0.2s;" 
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'" 
+        onmouseout="this.style.backgroundColor=''">
+        <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+      </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// ADMIN</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_admin') }}'" style="cursor: pointer;">
+        <i class="bi bi-grid-1x2-fill nav-icon"></i> Dashboard
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos') }}'" style="cursor: pointer;">
+        <i class="bi bi-clock-history nav-icon"></i> Historial de movimientos
+      </div>
+      <div class="nav-item active"><i class="bi bi-qr-code-scan nav-icon"></i>Escanear activo</div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('crear_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-people-fill nav-icon"></i> Registrar usuario
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('editar_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-pencil-fill nav-icon"></i> Gestionar usuarios
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('inventario_general') }}'" style="cursor: pointer;">
+        <i class="bi bi-table nav-icon"></i> Inventario general
+      </div>
+    </nav>
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Escanear Activo</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">sistema / <span>Escanear Activo</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user" onclick="window.location.href='{{ url_for('editar_perfil') }}'" 
+            style="cursor: pointer; transition: all 0.2s;" 
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'" 
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av">{{ session.nombre_completo[:2]|upper }}</div>
+            <span>Admin</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// lectura QR</div>
+          <div class="ph-title">Escanear Activo</div>
+          <div class="ph-sub">Consulta la información completa de cualquier activo mediante su código QR</div>
+        </div>
+      </div>
+
+      <div class="scan-wrap" style="display:grid;grid-template-columns:300px 1fr;gap:18px;max-width:1200px">
+
+        <!-- Panel izquierdo -->
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title" style="margin-bottom:14px">Buscar activo</div>
+            <div class="form-group" style="margin-bottom:10px">
+              <label class="form-label">Nombre o folio del activo</label>
+              <div class="autocomplete-container">
+                <input class="form-input" id="searchInput" placeholder="Escribe para buscar…" value="{{ request.args.get('q', '') }}" autocomplete="off">
+                <div class="autocomplete-results" id="autocompleteResults"></div>
+              </div>
+              <div class="form-error" id="searchError" style="display:none">Activo no encontrado en el sistema</div>
+            </div>
+            <button class="btn btn-green btn-full btn-sm" onclick="buscarActivo()">
+              <i class="bi bi-search"></i> Buscar activo
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="margin-bottom:12px">Activos recientes</div>
+            <div style="display:flex;flex-direction:column;gap:7px" id="activosLista">
+              <!-- Los activos se cargarán aquí vía JavaScript -->
+              <div style="text-align:center; padding:20px; color:var(--text-secondary);">
+                <i class="bi bi-arrow-up-circle" style="font-size:24px;"></i>
+                <p>Cargando activos recientes...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel derecho: resultado -->
+        <div id="resultadoPanel">
+          <!-- Estado vacío (por defecto) -->
+          <div id="emptyState" style="border:1.5px dashed var(--smoke-3);border-radius:var(--radius-lg);padding:60px 24px;text-align:center;background:var(--white)">
+            <div style="font-size:40px;margin-bottom:14px;opacity:.15;color:var(--ink)"><i class="bi bi-qr-code-scan"></i></div>
+            <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:7px">Selecciona un activo</div>
+            <div style="font-size:13px;color:rgba(8,13,11,0.45)">Escribe su nombre o folio en el buscador para ver la información completa.</div>
+          </div>
+
+          <!-- Resultado de scan (visible tras seleccionar) -->
+          <div id="resultadoCard" style="display:none;">
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--smoke-3)">
+                <div style="font-size:20px;width:48px;height:48px;background:rgba(0,201,122,0.08);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(0,201,122,0.2);color:var(--g-dark)">
+                  <i class="bi bi-box-seam"></i>
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-0.4px" id="activoNombre"></div>
+                  <div style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--g-dark);margin-top:3px;letter-spacing:.5px" id="activoID"></div>
+                </div>
+                <span class="badge b-green" id="activoEstado">Activo</span>
+              </div>
+              
+              <div style="display:flex;gap:18px;margin-bottom:18px;flex-wrap:wrap">
+                <div>
+                  <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:rgba(8,13,11,0.4);font-weight:700;margin-bottom:9px">Código QR</div>
+                  <div style="background:white;border:1px solid var(--smoke-3);padding:10px;border-radius:8px;width:120px;height:120px;display:flex;align-items:center;justify-content:center;">
+                    <img id="activoQR" src="" style="max-width:100px; max-height:100px; display:none;">
+                    <i id="qrPlaceholder" class="bi bi-qr-code" style="font-size:60px; color:rgba(8,13,11,0.2);"></i>
+                  </div>
+                </div>
+                <div style="flex:1;min-width:180px">
+                  <div class="info-grid" id="infoGrid">
+                    <span class="i-label">Edificio</span><span class="i-val" id="activoEdificio">—</span>
+                    <span class="i-label">Ubicación</span><span class="i-val" id="activoUbicacion">—</span>
+                    <span class="i-label">Garantía</span><span class="i-val" id="activoGarantia">—</span>
+                    <span class="i-label">Registrado</span><span class="i-val" id="activoFecha">—</span>
+                    <span class="i-label">Por</span><span class="i-val" id="activoUsuario">—</span>
+                    <span class="i-label">Observaciones</span><span class="i-val" id="activoObservaciones">—</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm" onclick="verQRCompleto()">
+                  <i class="bi bi-qr-code"></i> Ver QR completo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: Ver QR completo -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal" style="max-width:400px; text-align:center;">
+    <div class="modal-top-bar"></div>
+    <button class="m-close" onclick="closeModal('qrModal')"><i class="bi bi-x"></i></button>
+    <div class="m-title" style="font-size:22px;">Código QR</div>
+    <div class="m-sub" id="qrModalTitle" style="font-weight:500; margin-bottom:15px;">Nombre del Activo — Folio</div>
+    
+    <div style="display:flex; justify-content:center; margin:10px 0 15px; padding:15px; background:var(--smoke); border-radius:var(--radius); border:1px solid var(--smoke-3)">
+      <img id="qrModalImage" src="" alt="QR del activo" style="max-width:200px; max-height:200px; border-radius:8px;">
+    </div>
+    
+    <div style="background:rgba(0,201,122,0.04); border:1px solid rgba(0,201,122,0.15); border-radius:8px; padding:12px; font-size:13px; color:var(--g-dark); margin-bottom:20px; text-align:left;">
+      <i class="bi bi-info-circle-fill" style="color:#2b7a4b; margin-right:6px;"></i>
+      <strong>Importante:</strong> El QR es único para este activo y no cambia aunque edites su información.
+    </div>
+    
+    <div class="m-actions" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="closeModal('qrModal')" style="gap:5px;">
+        <i class="bi bi-x-lg"></i> Cerrar
+      </button>
+      <a href="#" id="downloadQRLink" class="btn btn-green" download style="gap:5px;">
+        <i class="bi bi-download"></i> Descargar QR
+      </a>
+      <button class="btn btn-green" onclick="imprimirQR()" style="gap:5px;">
+        <i class="bi bi-printer"></i> Imprimir
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+<script>
+let activoActual = null;
+let timeoutId = null;
+let resultadosAutocomplete = [];
+let selectedIndex = -1;
+
+// Función para abrir/cerrar modal
+function openModal(id) {
+    document.getElementById(id)?.classList.add('open');
+}
+
+function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+}
+
+// Función para buscar activo
+function buscarActivo() {
+    const query = document.getElementById('searchInput').value.trim();
+    const searchError = document.getElementById('searchError');
+    
+    if (!query) {
+        searchError.style.display = 'block';
+        searchError.innerHTML = 'Ingresa un código o Folio de activo';
+        return;
+    }
+    
+    // Mostrar loading
+    showToast('Buscando activo...', 'info');
+    
+    // Cerrar autocompletado
+    ocultarAutocompletado();
+    
+    // Llamar a la API
+    fetch(`/api/buscar_activo?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                searchError.style.display = 'none';
+                mostrarActivo(data.activo);
+                cargarActivosRecientes();
+            } else {
+                searchError.style.display = 'block';
+                searchError.innerHTML = data.message || 'Activo no encontrado';
+                document.getElementById('emptyState').style.display = 'flex';
+                document.getElementById('resultadoCard').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error al buscar activo', 'error');
+        });
+}
+
+// Función para buscar sugerencias de autocompletado
+function buscarSugerencias(query) {
+    if (query.length < 2) {
+        ocultarAutocompletado();
+        return;
+    }
+    
+    fetch(`/api/buscar_sugerencias?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.resultados.length > 0) {
+                resultadosAutocomplete = data.resultados;
+                mostrarAutocompletado(resultadosAutocomplete, query);
+            } else {
+                ocultarAutocompletado();
+            }
+        })
+        .catch(error => {
+            console.error('Error en autocompletado:', error);
+        });
+}
+
+// Función para mostrar autocompletado
+function mostrarAutocompletado(resultados, query) {
+    const container = document.getElementById('autocompleteResults');
+    container.innerHTML = '';
+    
+    resultados.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = `autocomplete-item ${index === selectedIndex ? 'active' : ''}`;
+        div.onclick = () => seleccionarSugerencia(item);
+        
+        // Resaltar el texto buscado
+        const nombreResaltado = resaltarTexto(item.nombre, query);
+        
+        div.innerHTML = `
+            <div class="autocomplete-icon">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="autocomplete-info">
+                <div class="autocomplete-name">${nombreResaltado}</div>
+                <div class="autocomplete-details">
+                    <span>Folio: ${item.id}</span>
+                    <span>${item.edificio || 'Sin edificio'}</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+    
+    container.classList.add('show');
+}
+
+// Función para resaltar texto
+function resaltarTexto(texto, busqueda) {
+    if (!busqueda) return texto;
+    const regex = new RegExp(`(${busqueda})`, 'gi');
+    return texto.replace(regex, '<span class="autocomplete-highlight">$1</span>');
+}
+
+// Función para seleccionar una sugerencia
+function seleccionarSugerencia(item) {
+    document.getElementById('searchInput').value = item.id;
+    ocultarAutocompletado();
+    buscarActivo();
+}
+
+// Función para ocultar autocompletado
+function ocultarAutocompletado() {
+    document.getElementById('autocompleteResults').classList.remove('show');
+    selectedIndex = -1;
+}
+
+// Función para navegar con teclas
+function navegarAutocompletado(e) {
+    const results = document.getElementById('autocompleteResults');
+    if (!results.classList.contains('show')) return;
+    
+    const items = document.querySelectorAll('.autocomplete-item');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+        actualizarSeleccion(items);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = Math.max(selectedIndex - 1, -1);
+        actualizarSeleccion(items);
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+        e.preventDefault();
+        seleccionarSugerencia(resultadosAutocomplete[selectedIndex]);
+    } else if (e.key === 'Escape') {
+        ocultarAutocompletado();
+    }
+}
+
+// Función para actualizar selección visual
+function actualizarSeleccion(items) {
+    items.forEach((item, index) => {
+        if (index === selectedIndex) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+// Función para mostrar activo en el panel
+function mostrarActivo(activo) {
+    activoActual = activo;
+    
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('resultadoCard').style.display = 'block';
+    
+    document.getElementById('activoNombre').innerHTML = activo.nombre;
+    document.getElementById('activoID').innerHTML = `FOLIO: ${activo.id} | Código: ${activo.codigo || '—'}`;
+    
+    // Estado (podrías agregar un campo estado en tu BD)
+    document.getElementById('activoEstado').innerHTML = activo.estado || 'Bueno';
+    
+    // Edificio y ubicación
+    document.getElementById('activoEdificio').innerHTML = activo.edificio || '—';
+    document.getElementById('activoUbicacion').innerHTML = activo.ubicacion || '—';
+    document.getElementById('activoGarantia').innerHTML = activo.garantia ? `<span class="badge b-green">${activo.garantia}</span>` : '—';
+    document.getElementById('activoFecha').innerHTML = activo.fecha || '—';
+    document.getElementById('activoUsuario').innerHTML = activo.usuario || '—';
+    document.getElementById('activoObservaciones').innerHTML = activo.observaciones || '—';
+    
+    // QR
+    const qrImage = document.getElementById('activoQR');
+    const qrPlaceholder = document.getElementById('qrPlaceholder');
+    
+    if (activo.qr) {
+        qrImage.src = '/' + activo.qr;
+        qrImage.style.display = 'block';
+        qrPlaceholder.style.display = 'none';
+    } else {
+        qrImage.style.display = 'none';
+        qrPlaceholder.style.display = 'block';
+    }
+    
+    // Botón editar
+    document.getElementById('btnEditarActivo').href = `/editar_activo/${activo.id}`;
+}
+
+// Función para cargar activos recientes
+function cargarActivosRecientes() {
+    fetch('/api/activos_recientes?limite=5')
+        .then(response => response.json())
+        .then(data => {
+            const lista = document.getElementById('activosLista');
+            lista.innerHTML = '';
+            
+            if (data.activos && data.activos.length > 0) {
+                data.activos.forEach(activo => {
+                    const item = document.createElement('div');
+                    item.className = 'asset-list-item';
+                    item.onclick = () => {
+                        document.getElementById('searchInput').value = activo.id;
+                        buscarActivo();
+                    };
+                    item.style.cursor = 'pointer';
+                    item.innerHTML = `
+                        <div class="ali-icon"><i class="bi bi-box-seam"></i></div>
+                        <div style="flex:1;min-width:0">
+                            <div style="font-weight:500;font-size:13px">${activo.nombre}</div>
+                            <div style="font-family:var(--font-mono);font-size:9px;color:var(--g-dark);margin-top:1px;font-weight:700;letter-spacing:.5px">Folio: ${activo.id}</div>
+                        </div>
+                    `;
+                    lista.appendChild(item);
+                });
+            } else {
+                lista.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-secondary);">No hay activos recientes</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+
+// Función para ver QR completo
+function verQRCompleto() {
+    if (!activoActual) return;
+    
+    document.getElementById('qrModalTitle').innerHTML = `<strong>${activoActual.nombre}</strong><br><span style="font-size:12px;">FOLIO: ${activoActual.id}</span>`;
+    
+    const qrImage = document.getElementById('qrModalImage');
+    const downloadLink = document.getElementById('downloadQRLink');
+    
+    if (activoActual.qr) {
+        qrImage.src = '/' + activoActual.qr;
+        downloadLink.href = '/' + activoActual.qr;
+        downloadLink.download = `qr_activo_${activoActual.id}.png`;
+    } else {
+        qrImage.src = '';
+        downloadLink.href = '#';
+    }
+    
+    openModal('qrModal');
+}
+
+// Función para imprimir QR
+function imprimirQR() {
+    const qrImage = document.getElementById('qrModalImage');
+    if (!qrImage || !qrImage.src) {
+        showToast('No hay QR para imprimir', 'error');
+        return;
+    }
+    
+    const ventana = window.open('', '_blank');
+    ventana.document.write(`
+        <html>
+            <head>
+                <title>Imprimir QR</title>
+                <style>
+                    body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column; font-family: Arial; }
+                    img { max-width: 300px; margin-bottom: 20px; }
+                    h3 { color: #333; }
+                </style>
+            </head>
+            <body>
+                <h3>${document.getElementById('qrModalTitle').innerText}</h3>
+                <img src="${qrImage.src}" />
+                <p>Código QR único del activo</p>
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            window.close();
+                        }, 500);
+                    }
+                <\/script>
+            </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+
+// Función para limpiar búsqueda
+function limpiarBusqueda() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchError').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('resultadoCard').style.display = 'none';
+    ocultarAutocompletado();
+}
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar activos recientes
+    cargarActivosRecientes();
+    
+    // Autocompletado al escribir
+    const searchInput = document.getElementById('searchInput');
+    
+    searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+        
+        // Limpiar timeout anterior
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        
+        // Ocultar resultados si está vacío
+        if (!query) {
+            ocultarAutocompletado();
+            return;
+        }
+        
+        // Esperar 300ms después de dejar de escribir
+        timeoutId = setTimeout(() => {
+            buscarSugerencias(query);
+        }, 300);
+    });
+    
+    // Navegación con teclas
+    searchInput.addEventListener('keydown', navegarAutocompletado);
+    
+    // Cerrar autocompletado al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.autocomplete-container')) {
+            ocultarAutocompletado();
+        }
+    });
+    
+    // Buscar al presionar Enter
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && selectedIndex === -1) {
+            buscarActivo();
+        }
+    });
+    
+    // Si hay query en URL, buscar automáticamente
+    const urlParams = new URLSearchParams(window.location.search);
+    const q = urlParams.get('q');
+    if (q) {
+        document.getElementById('searchInput').value = q;
+        buscarActivo();
+    }
+    
+    // Configurar menú hamburguesa
+    const menuBtn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    if (menuBtn && sidebar && overlay) {
+        menuBtn.addEventListener('click', function() {
+            sidebar.classList.add('open');
+            overlay.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        });
+        
+        overlay.addEventListener('click', function() {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('show');
+            document.body.style.overflow = '';
+        });
+    }
+    
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            sidebar?.classList.remove('open');
+            overlay?.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    });
+});
+</script>
+</body>
+</html>
