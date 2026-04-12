@@ -485,7 +485,7 @@ def registrar_activo():
             # Actualizar la base de datos con el nombre definitivo
             cursor.execute(
                 "UPDATE Activos SET FotoActivo = %s WHERE idActivo = %s",
-                nombre_definitivo, id_activo
+               (nombre_definitivo, id_activo)
             )
             foto_db = nombre_definitivo
 
@@ -497,7 +497,7 @@ def registrar_activo():
         # UPDATE QR
         cursor.execute(
             "UPDATE Activos SET QR = %s WHERE idActivo = %s",
-            ruta_qr, id_activo
+           (ruta_qr, id_activo)
         )
 
         # ===============================
@@ -526,7 +526,7 @@ def registrar_activo():
                 INSERT INTO DetalleHistorial
                 (idHistorial, CampoModificado, ValorAnterior, ValorActual)
                 VALUES (%s, %s, %s, %s)
-            """, (id_historial, campo, None, str(valor,)))
+            """, (id_historial, campo, None, str(valor)))
 
         db.conn.commit()
 
@@ -1065,7 +1065,7 @@ def registrar_activo_usuario():
             # Actualizar la base de datos con el nombre definitivo
             cursor.execute(
                 "UPDATE Activos SET FotoActivo = %s WHERE idActivo = %s",
-                nombre_definitivo, id_activo
+               (nombre_definitivo, id_activo)
             )
             foto_db = nombre_definitivo
 
@@ -1077,7 +1077,7 @@ def registrar_activo_usuario():
         # UPDATE QR
         cursor.execute(
             "UPDATE Activos SET QR = %s WHERE idActivo = %s",
-            ruta_qr, id_activo
+           (ruta_qr, id_activo)
         )
 
         # ===============================
@@ -1106,7 +1106,7 @@ def registrar_activo_usuario():
                 INSERT INTO DetalleHistorial
                 (idHistorial, CampoModificado, ValorAnterior, ValorActual)
                 VALUES (%s, %s, %s, %s)
-            """, (id_historial, campo, None, str(valor,)))
+            """, (id_historial, campo, None, str(valor)))
 
         db.conn.commit()
 
@@ -1649,10 +1649,7 @@ def activos_por_fecha():
         # Query para agrupar por períodos de 10 días
         query = f"""
             SELECT 
-                DATEADD(day, 
-                    (DATEDIFF(day, '2000-01-01', a.FechaEntrada) / 10) * 10, 
-                    '2000-01-01'
-                ) as periodo_inicio,
+                ('2000-01-01'::date + (((a.FechaEntrada - '2000-01-01'::date) / 10) * 10) * INTERVAL '1 day') as periodo_inicio,
                 COUNT(*) as cantidad
             FROM Activos a
             WHERE a.FechaEntrada >= NOW() - INTERVAL '90 days'
