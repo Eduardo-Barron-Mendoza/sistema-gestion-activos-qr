@@ -629,7 +629,7 @@ def editar_activo():
                 INSERT INTO DetalleHistorial
                 (idHistorial, CampoModificado, ValorAnterior, ValorActual)
                 VALUES (%s, %s, %s, %s)
-            """, (id_historial, campo, str(anterior,)), str(nuevo))
+            """, (id_historial, campo, str(anterior), str(nuevo)))
 
     db.conn.commit()
 
@@ -1246,7 +1246,7 @@ def editar_activo_usuario():
                 INSERT INTO DetalleHistorial
                 (idHistorial, CampoModificado, ValorAnterior, ValorActual)
                 VALUES (%s, %s, %s, %s)
-            """, (id_historial, campo, str(anterior,)), str(nuevo))
+            """, (id_historial, campo, str(anterior), str(nuevo)))
 
     db.conn.commit()
 
