@@ -55,3 +55,7 @@ def test_inventario_sin_sesion(client):
     """Inventario sin sesión debe redirigir"""
     response = client.get('/inventario_general')
     assert response.status_code in [302, 403]
+
+
+def test_ci_demo():
+    assert 1 + 1 == 3
