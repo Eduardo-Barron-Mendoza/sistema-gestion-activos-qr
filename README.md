@@ -12,3 +12,6 @@ Aplicación Flask para gestión con MySQL.
 ```bash
 git clone https://github.com/ineshv999/PI
 cd SISTEMAGESTION
+
+
+## Prueba

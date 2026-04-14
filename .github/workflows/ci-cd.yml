@@ -7,13 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  # ============================================
-  # INTEGRACIÓN CONTINUA — Pruebas automáticas
-  # ============================================
   test:
     name: Ejecutar pruebas
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -24,33 +20,18 @@ jobs:
           python-version: "3.11"
 
       - name: Instalar dependencias
-        working-directory: SistemaGestion_2
         run: |
           pip install flask flask-cors python-dotenv pytest Werkzeug Jinja2 pillow qrcode psycopg2-binary
 
       - name: Ejecutar pruebas
-        working-directory: SistemaGestion_2
         run: pytest test_app.py -v
 
-  # ============================================
-  # ENTREGA CONTINUA — Deploy automático al VPS
-  # ============================================
   deploy:
-    name: Desplegar en VPS
+    name: Notificar deploy a Render
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     steps:
-      - name: Conectar al VPS y desplegar
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_KEY }}
-          script: |
-            cd ~/PI/SistemaGestion_2
-            git pull origin main
-            docker compose down
-            docker compose up --build -d
-            docker compose ps
+      - name: Trigger deploy en Render
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
