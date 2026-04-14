@@ -3,12 +3,17 @@ from unittest.mock import patch, MagicMock
 import sys
 
 # Mock del módulo db antes de importar app
-mock_db = MagicMock()
 mock_cursor = MagicMock()
 mock_cursor.fetchone.return_value = None
 mock_cursor.fetchall.return_value = []
+
+mock_conn = MagicMock()
+mock_conn.cursor.return_value = mock_cursor
+
+mock_db = MagicMock()
+mock_db.conn = mock_conn
 mock_db.cursor = mock_cursor
-mock_db.conn = MagicMock()
+
 sys.modules['db'] = mock_db
 
 from app import app
@@ -26,7 +31,7 @@ def test_login_page_loads(client):
 
 def test_login_post_usuario_no_existe(client):
     """Login con usuario inexistente redirige"""
-    mock_cursor.fetchone.return_value = None
+    mock_conn.cursor.return_value.fetchone.return_value = None
     with client.session_transaction() as sess:
         sess['csrf_token'] = 'token_test'
     response = client.post('/', data={
