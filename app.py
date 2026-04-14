@@ -54,7 +54,7 @@ def login():
         user = request.form.get("user")
         password = request.form.get("password")
 
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
             SELECT u.idUsuario, u.Contra, p.Rol, p.NombreCompleto
             FROM Usuarios u
@@ -109,7 +109,7 @@ def dashboard_admin():
     
     # Ahora sí, asegurar que existe nombre_completo
     if 'nombre_completo' not in session:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
             SELECT p.NombreCompleto 
             FROM Personas p 
@@ -133,7 +133,7 @@ def dashboard_usuario():
     
     # Asegurar que existe nombre_completo
     if 'nombre_completo' not in session:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
             SELECT p.NombreCompleto 
             FROM Personas p 
@@ -177,7 +177,7 @@ def crear_usuario():
         else:
             foto_db = None
 
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
             INSERT INTO Personas (NombreCompleto, Rol, Puesto, Edad, Domicilio, Foto)
             VALUES (%s, %s, %s, %s, %s, %s)
@@ -212,7 +212,7 @@ def editar_usuario():
         flash("No tienes permisos", "danger")
         return redirect(url_for("login"))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT u.idUsuario, u."User", p.NombreCompleto, p.Rol, p.Puesto, p.Edad, p.Domicilio, p.Foto,
                    (SELECT COUNT(*) FROM Activos WHERE IdUsuario = u.idUsuario) as cantidad_activos
@@ -270,7 +270,7 @@ def eliminar_usuario(id_usuario):
     if session.get("rol","").lower() != "administrador":
         abort(403)
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     # 1. Verificar que no sea el propio usuario
     if id_usuario == session.get('user_id'):
@@ -332,7 +332,7 @@ def eliminar_usuario(id_usuario):
 # =========================================
 @app.route("/usuarios/info/<int:id_usuario>")
 def info_usuario(id_usuario):
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT u."User", p.NombreCompleto, p.Rol, p.Puesto, p.Edad, p.Domicilio, p.Foto
         FROM Usuarios u
@@ -363,7 +363,7 @@ def editar_perfil():
         return redirect(url_for("login"))
 
     user_id = session["user_id"]
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT u."User", p.NombreCompleto, p.Rol, p.Puesto, p.Edad, p.Domicilio, p.Foto
         FROM Usuarios u
@@ -426,7 +426,7 @@ def registrar_activo():
     if 'rol' not in session or session['rol'].lower() != 'administrador':
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     cursor.execute("SELECT idEdificio, Edificio FROM Edificios")
     edificios = cursor.fetchall()
@@ -560,7 +560,7 @@ def editar_activo():
         flash('ID de activo no proporcionado', 'danger')
         return redirect(url_for('inventario_general'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     # Obtener datos actuales del activo
     cursor.execute("""
@@ -607,8 +607,8 @@ def editar_activo():
     cursor.execute("""
         INSERT INTO Historial
         (idUsuario, FechaEdicion, HoraEdicion, idActivo, Cambios)
-        OUTPUT INSERTED.idHistorial
         VALUES (%s, %s, %s, %s, %s)
+        RETURNING idHistorial
     """, (id_usuario, fecha, hora, id_activo, "Activo editado",))
 
     id_historial = cursor.fetchone()[0]
@@ -642,7 +642,7 @@ def eliminar_activo(id_activo):
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     try:
         # Primero eliminar detalles del historial
@@ -672,7 +672,7 @@ def historial_movimientos():
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     cursor.execute("""
         SELECT 
@@ -687,7 +687,7 @@ def historial_movimientos():
         JOIN Personas p ON u.idPersona = p.idPersona
         JOIN Activos a ON h.idActivo = a.idActivo
         ORDER BY h.FechaEdicion DESC, h.HoraEdicion DESC
-            LIMIT 1    """)
+        """)
 
     historial = cursor.fetchall()
 
@@ -704,7 +704,7 @@ def api_detalle_historial(id_historial):
     if 'user_id' not in session or session.get('rol', '').lower() != 'administrador':
         return jsonify({'success': False, 'message': 'No autorizado'}), 401
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     # Obtener información general del historial
     cursor.execute("""
@@ -723,7 +723,7 @@ def api_detalle_historial(id_historial):
         FROM DetalleHistorial
         WHERE idHistorial = %s
         ORDER BY CampoModificado
-            LIMIT 1    """, (id_historial,))
+        """, (id_historial,))
     
     detalles = cursor.fetchall()
     
@@ -758,7 +758,7 @@ def generar_qr(texto, nombre_archivo):
 
 @app.route('/ver_activo/<int:id_activo>')
 def ver_activo(id_activo):
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT Nombre, UbicacionActual, Garantia, FechaEntrada, HoraEntrada, FotoActivo, QR, Observaciones
         FROM Activos
@@ -797,7 +797,7 @@ def inventario_general():
     if 'rol' not in session or session['rol'].lower() != 'administrador':
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT 
             a.idActivo,
@@ -813,7 +813,7 @@ def inventario_general():
         FROM Activos a
         LEFT JOIN Edificios e ON a.IdEdificio = e.idEdificio
         ORDER BY a.idActivo DESC
-            LIMIT 1    """)
+        """)
     activos = cursor.fetchall()
 
     cursor.execute("SELECT idEdificio, Edificio FROM Edificios ORDER BY Edificio")
@@ -839,7 +839,7 @@ def logout():
 # =========================================
 @app.route("/api/activos", methods=["GET"])
 def api_activos():
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("SELECT idActivo, Nombre, UbicacionActual FROM Activos")
     rows = cursor.fetchall()
 
@@ -860,7 +860,7 @@ def api_buscar_activo():
     if not query:
         return jsonify({'success': False, 'message': 'Ingresa un término de búsqueda'})
     
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     # Buscar por ID o por nombre
     try:
@@ -915,7 +915,7 @@ def api_buscar_activo():
 def api_activos_recientes():
     limite = request.args.get('limite', 5, type=int)
     
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT 
             a.idActivo, 
@@ -932,7 +932,7 @@ def api_activos_recientes():
         LEFT JOIN Edificios e ON a.IdEdificio = e.idEdificio
         LEFT JOIN Usuarios u ON a.IdUsuario = u.idUsuario
         ORDER BY a.FechaEntrada DESC
-            LIMIT 1    """, (limite,))
+        """, (limite,))
     
     activos = cursor.fetchall()
     
@@ -965,7 +965,7 @@ def api_buscar_sugerencias():
     if len(query) < 2:
         return jsonify({'success': False, 'resultados': []})
     
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     # Buscar activos que coincidan con el nombre o ID
     cursor.execute("""
@@ -1006,7 +1006,7 @@ def registrar_activo_usuario():
     if 'rol' not in session or session['rol'].lower() != 'usuario':
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     cursor.execute("SELECT idEdificio, Edificio FROM Edificios")
     edificios = cursor.fetchall()
@@ -1131,7 +1131,7 @@ def inventario_general_usuario():
     if 'rol' not in session or session['rol'].lower() != 'usuario':
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT 
             a.idActivo,
@@ -1147,7 +1147,7 @@ def inventario_general_usuario():
         FROM Activos a
         LEFT JOIN Edificios e ON a.IdEdificio = e.idEdificio
         ORDER BY a.FechaEntrada DESC
-            LIMIT 1    """)
+        """)
     activos = cursor.fetchall()
 
     cursor.execute("SELECT idEdificio, Edificio FROM Edificios ORDER BY Edificio")
@@ -1177,7 +1177,7 @@ def editar_activo_usuario():
         flash('ID de activo no proporcionado', 'danger')
         return redirect(url_for('inventario_general_usuario'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     # Obtener datos actuales del activo
     cursor.execute("""
@@ -1224,8 +1224,8 @@ def editar_activo_usuario():
     cursor.execute("""
         INSERT INTO Historial
         (idUsuario, FechaEdicion, HoraEdicion, idActivo, Cambios)
-        OUTPUT INSERTED.idHistorial
         VALUES (%s, %s, %s, %s, %s)
+        RETURNING idHistorial
     """, (id_usuario, fecha, hora, id_activo, "Activo editado",))
 
     id_historial = cursor.fetchone()[0]
@@ -1260,7 +1260,7 @@ def historial_movimientos_usuario():
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     cursor.execute("""
         SELECT 
@@ -1275,7 +1275,7 @@ def historial_movimientos_usuario():
         JOIN Personas p ON u.idPersona = p.idPersona
         JOIN Activos a ON h.idActivo = a.idActivo
         ORDER BY h.FechaEdicion DESC, h.HoraEdicion DESC
-            LIMIT 1    """)
+        """)
 
     historial = cursor.fetchall()
 
@@ -1292,7 +1292,7 @@ def api_detalle_historial_usuario(id_historial):
     if 'user_id' not in session or session.get('rol', '').lower() != 'usuario':
         return jsonify({'success': False, 'message': 'No autorizado'}), 401
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
 
     # Obtener información general del historial
     cursor.execute("""
@@ -1311,7 +1311,7 @@ def api_detalle_historial_usuario(id_historial):
         FROM DetalleHistorial
         WHERE idHistorial = %s
         ORDER BY CampoModificado
-            LIMIT 1    """, (id_historial,))
+        """, (id_historial,))
     
     detalles = cursor.fetchall()
     
@@ -1338,7 +1338,7 @@ def editar_perfil_usuario():
         return redirect(url_for("login"))
 
     user_id = session["user_id"]
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     cursor.execute("""
         SELECT u."User", p.NombreCompleto, p.Rol, p.Puesto, p.Edad, p.Domicilio, p.Foto
         FROM Usuarios u
@@ -1389,7 +1389,7 @@ def eliminar_activo_usuario(id_activo):
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('login'))
 
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     try:
         # Primero eliminar detalles del historial
@@ -1556,28 +1556,28 @@ def dashboard_stats():
         return jsonify({'error': 'No autorizado'}), 401
     
     try:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Activos")
         total_activos = cursor.fetchone()[0]
         
         # IMPORTANTE: Crear un NUEVO cursor para cada consulta
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Usuarios")
         total_usuarios = cursor.fetchone()[0]
         
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Historial")
         total_movimientos = cursor.fetchone()[0]
         
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Activos WHERE Garantia IS NOT NULL AND Garantia != ''")
         total_garantias = cursor.fetchone()[0]
         
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Personas WHERE Rol = 'Administrador'")
         total_admins = cursor.fetchone()[0]
 
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
             SELECT Nombre, FechaEntrada
             FROM Activos
@@ -1611,7 +1611,7 @@ def usuarios_stats():
         return jsonify({'error': 'No autorizado'}), 401
     
     try:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Usuarios")
         total_usuarios = cursor.fetchone()[0]
         
@@ -1636,7 +1636,7 @@ def activos_por_fecha():
         return jsonify({'error': 'No autorizado'}), 401
     
     edificio_id = request.args.get('edificio_id', 'todos')
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     try:
         # Construir filtro de edificio
@@ -1654,9 +1654,9 @@ def activos_por_fecha():
             FROM Activos a
             WHERE a.FechaEntrada >= NOW() - INTERVAL '90 days'
             {filtro_edificio}
-            GROUP BY EXTRACT(EPOCH FROM (a.FechaEntrada - '2000-01-01'::date))::int/86400/10
+            GROUP BY (a.FechaEntrada - '2000-01-01'::date) / 10
             ORDER BY periodo_inicio
-            LIMIT 1        """
+        """
         
         cursor.execute(query, params)
         resultados = cursor.fetchall()
@@ -1691,7 +1691,7 @@ def activos_por_usuario_semana():
         return jsonify({'error': 'No autorizado'}), 401
     
     usuario_id = request.args.get('usuario_id', 'todos')
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     try:
         # Construir filtro de usuario
@@ -1714,7 +1714,7 @@ def activos_por_usuario_semana():
             {filtro_usuario}
             GROUP BY DATE_TRUNC('week', a.FechaEntrada), p.NombreCompleto
             ORDER BY semana_inicio
-            LIMIT 1        """
+        """
         
         cursor.execute(query, params)
         resultados = cursor.fetchall()
@@ -1734,7 +1734,7 @@ def activos_por_usuario_semana():
             FROM Usuarios u
             JOIN Personas p ON u.idPersona = p.idPersona
             ORDER BY p.NombreCompleto
-            LIMIT 1        """)
+        """)
         usuarios = cursor.fetchall()
         
         # Estadísticas generales
@@ -1771,7 +1771,7 @@ def stats_usuario(usuario_id):
     if 'user_id' not in session:
         return jsonify({'error': 'No autorizado'}), 401
     
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     try:
         # Total de activos del usuario
@@ -1810,7 +1810,7 @@ def movimientos_por_semana():
         return jsonify({'error': 'No autorizado'}), 401
     
     usuario_id = request.args.get('usuario_id', 'todos')
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     try:
         # Construir filtro de usuario
@@ -1833,7 +1833,7 @@ def movimientos_por_semana():
             {filtro_usuario}
             GROUP BY DATE_TRUNC('week', h.FechaEdicion), p.NombreCompleto
             ORDER BY semana_inicio
-            LIMIT 1        """
+        """
         
         cursor.execute(query, params)
         resultados = cursor.fetchall()
@@ -1853,7 +1853,7 @@ def movimientos_por_semana():
             FROM Usuarios u
             JOIN Personas p ON u.idPersona = p.idPersona
             ORDER BY p.NombreCompleto
-            LIMIT 1        """)
+        """)
         usuarios = cursor.fetchall()
         
         # Estadísticas generales
@@ -1890,7 +1890,7 @@ def stats_movimientos_usuario(usuario_id):
     if 'user_id' not in session:
         return jsonify({'error': 'No autorizado'}), 401
     
-    cursor = db.cursor
+    cursor = db.conn.cursor()
     
     try:
         # Total de movimientos del usuario
@@ -1929,7 +1929,7 @@ def movimientos_stats():
         return jsonify({'error': 'No autorizado'}), 401
     
     try:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Historial")
         resultado = cursor.fetchone()
         
@@ -1949,7 +1949,7 @@ def activos_por_antiguedad():
         return jsonify({'error': 'No autorizado'}), 401
     
     try:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         # Obtener activos ordenados por fecha (más antiguos primero)
         cursor.execute("""
             SELECT                 a.idActivo,
@@ -1968,21 +1968,21 @@ def activos_por_antiguedad():
             FROM Activos a
             LEFT JOIN Edificios e ON a.IdEdificio = e.idEdificio
             ORDER BY a.FechaEntrada ASC, a.HoraEntrada ASC
-            LIMIT 1        """)
+        """)
         
         activos = cursor.fetchall()
         
         # Estadísticas
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Activos")
         total_activos = cursor.fetchone()[0]
         
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Activos WHERE Garantia IS NOT NULL AND Garantia != ''")
         total_garantias = cursor.fetchone()[0]
         
         # Activo más antiguo
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
             SELECT Nombre, FechaEntrada
             FROM Activos
@@ -2021,7 +2021,7 @@ def activos_antiguos_stats():
         return jsonify({'error': 'No autorizado'}), 401
     
     try:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
             SELECT 
                 SUM(CASE WHEN EXTRACT(EPOCH FROM (NOW() - FechaEntrada))::int/86400 <= 30 THEN 1 ELSE 0 END) as ultimo_mes,
@@ -2052,15 +2052,15 @@ def activos_antiguos_stats():
 def public_simple_stats():
     """Versión usando el mismo patrón que activos_por_antiguedad"""
     try:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Activos")
         total_activos = cursor.fetchone()[0]
         
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM Usuarios")
         total_usuarios = cursor.fetchone()[0]
         
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         cursor.execute("""
                 SELECT Nombre, FechaEntrada
                 FROM Activos
@@ -2090,7 +2090,7 @@ def public_simple_stats():
 def public_activos_por_antiguedad():
     """Versión pública de activos_por_antiguedad"""
     try:
-        cursor = db.cursor
+        cursor = db.conn.cursor()
         
         cursor.execute("""
             SELECT                 a.idActivo,
@@ -2109,7 +2109,7 @@ def public_activos_por_antiguedad():
             FROM Activos a
             LEFT JOIN Edificios e ON a.IdEdificio = e.idEdificio
             ORDER BY a.FechaEntrada ASC, a.HoraEntrada ASC
-            LIMIT 1        """)
+        """)
         
         activos = cursor.fetchall()
         
